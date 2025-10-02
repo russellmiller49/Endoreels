@@ -1,21 +1,39 @@
-//
-//  ContentView.swift
-//  EndoReels
-//
-//  Created by Russell Miller on 10/2/25.
-//
-
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject private var store = DemoDataStore()
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        TabView {
+            NavigationStack {
+                FeedView()
+            }
+            .tabItem {
+                Label("Feed", systemImage: "play.rectangle.on.rectangle")
+            }
+
+            NavigationStack {
+                CreatorView()
+            }
+            .tabItem {
+                Label("Creator", systemImage: "wand.and.stars")
+            }
+
+            NavigationStack {
+                KnowledgeHubView()
+            }
+            .tabItem {
+                Label("Knowledge", systemImage: "books.vertical")
+            }
+
+            NavigationStack {
+                OperationsView()
+            }
+            .tabItem {
+                Label("Ops", systemImage: "checkmark.shield")
+            }
         }
-        .padding()
+        .environmentObject(store)
     }
 }
 
