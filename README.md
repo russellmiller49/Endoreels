@@ -125,6 +125,8 @@ EndoReels/
 - Demo data is included for testing and development
 - All files are structured at the repository root for optimal accessibility
 - Runtime configuration is provided through environment variables. Copy `.env.example` to `.env` (not committed) and fill in your Supabase and Railway secrets before running features that rely on the network layer.
+- Sign in with a Supabase email/password account after launch to unlock AI processing and credit management (anon credentials will only load demo data).
+- Need to craft demo cases from desktop? Check out `web-demo/` for a Vite-based authoring tool that exports JSON in the same shape used by the app's seed data.
 
 ---
 

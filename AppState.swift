@@ -18,19 +18,24 @@ final class AppState: ObservableObject {
     @Published var creditsStore: CreditsStore
     @Published var onboardingCompleted: Bool
     @Published var pendingNavigation: PendingNavigationAction?
+    @Published var authSession: AuthSession?
+    @Published var isAuthenticating = false
+    @Published var authError: String?
 
-    init(currentUser: CurrentUser? = nil, creditsStore: CreditsStore? = nil) {
+    private let authService = AuthService()
+
+    init(currentUser: CurrentUser? = nil) {
         let storedRole = UserDefaults.standard.string(forKey: Keys.preferredServiceLine).flatMap(ServiceLine.init(rawValue:))
         let user = currentUser ?? CurrentUser.demoUser(role: storedRole)
-        self.currentUser = user
+        _currentUser = Published(initialValue: user)
 
-        if let creditsStore {
-            self.creditsStore = creditsStore
-        } else {
-            self.creditsStore = CreditsStore()
-        }
+        _creditsStore = Published(initialValue: CreditsStore(tokenProvider: { nil }))
 
-        self.onboardingCompleted = UserDefaults.standard.bool(forKey: Keys.onboardingCompleted)
+        onboardingCompleted = UserDefaults.standard.bool(forKey: Keys.onboardingCompleted)
+        authSession = nil
+        pendingNavigation = nil
+
+        creditsStore.updateTokenProvider { [weak self] in self?.authSession?.accessToken }
     }
 
     func completeOnboarding(with role: ServiceLine, navigation: PendingNavigationAction?) {
@@ -46,6 +51,28 @@ final class AppState: ObservableObject {
 
     func resetPendingNavigation() {
         pendingNavigation = nil
+    }
+
+    func login(email: String, password: String) async {
+        isAuthenticating = true
+        authError = nil
+        do {
+            let session = try await authService.login(email: email, password: password)
+            authSession = session
+            creditsStore.updateTokenProvider { [weak self] in self?.authSession?.accessToken }
+            if let email = session.user.email {
+                currentUser.name = email
+            }
+            await creditsStore.refresh()
+        } catch {
+            authError = error.localizedDescription
+        }
+        isAuthenticating = false
+    }
+
+    func logout() {
+        authSession = nil
+        creditsStore.updateTokenProvider { nil }
     }
 }
 

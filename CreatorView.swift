@@ -467,6 +467,11 @@ struct CreatorView: View {
 
     private func runEnhancedProcessing() {
         guard !isProcessingEnhanced else { return }
+        guard appState.authSession != nil else {
+            aiProcessingError = "Sign in to use Enhanced processing."
+            NotificationCenter.default.post(name: .requestLoginPresentation, object: nil)
+            return
+        }
         guard !store.importedAssets.isEmpty else {
             aiProcessingError = "Import at least one media asset before running AI processing."
             return
@@ -604,6 +609,9 @@ struct CreatorView: View {
 
     private func applyCasePreset(_ preset: CasePreset) {
         selectedCasePreset = preset
+        aiSuggestions.removeAll()
+        lastEnhancedAt = nil
+        aiProcessingError = nil
         switch preset {
         case .demoPulmonary:
             title = "Stent Rescue Run-through"

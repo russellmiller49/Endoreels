@@ -54,3 +54,7 @@ Thumbs.db
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Web demo build artifacts
+web-demo/node_modules/
+web-demo/dist/

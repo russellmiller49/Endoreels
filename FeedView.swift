@@ -122,6 +122,15 @@ struct FeedView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
+                    if appState.authSession == nil {
+                        Button {
+                            showLoginPrompt()
+                        } label: {
+                            Label("Sign in for AI processing", systemImage: "person.crop.circle.badge.checkmark")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 }
                 .padding(.vertical, 8)
             }
@@ -339,6 +348,10 @@ struct FeedView: View {
         let difficulties = Array(Set(store.reels.map { $0.difficulty })).sorted()
         chips.append(contentsOf: difficulties.map { FilterChip.difficulty($0) })
         return chips
+    }
+
+    private func showLoginPrompt() {
+        NotificationCenter.default.post(name: .requestLoginPresentation, object: nil)
     }
 
     private func toggleFilterChip(_ chip: FilterChip) {

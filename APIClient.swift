@@ -17,9 +17,12 @@ extension APIRequest {
 struct APIClient {
     var baseURL: URL
     var session: URLSession = .shared
+    var authTokenProvider: () -> String? = { nil }
 
-    init(baseURL: URL = AppConfig.apiBaseURL) {
+    init(baseURL: URL = AppConfig.apiBaseURL, session: URLSession = .shared, authTokenProvider: @escaping () -> String? = { nil }) {
         self.baseURL = baseURL
+        self.session = session
+        self.authTokenProvider = authTokenProvider
     }
 
     func send<R: APIRequest>(_ request: R) async throws -> R.Response {
@@ -28,6 +31,9 @@ struct APIClient {
         urlRequest.httpMethod = request.method
         urlRequest.httpBody = request.body
         request.headers.forEach { urlRequest.setValue($0.value, forHTTPHeaderField: $0.key) }
+        if let token = authTokenProvider() {
+            urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         #if DEBUG
         // Placeholder: inject fake responses while backend is not available.
@@ -64,6 +70,9 @@ enum DemoAPI {
         if request is ProcessVideoRequest {
             return ProcessVideoResponse.demo as? R.Response
         }
+        if request is DeductCreditsRequest || request is RefundCreditsRequest || request is GrantCreditsRequest {
+            return CreditsResponse.demo as? R.Response
+        }
         return nil
     }
 }
@@ -73,6 +82,63 @@ struct CreditsRequest: APIRequest {
     typealias Response = CreditsResponse
     var path: String { "/api/credits" }
     var method: String { "GET" }
+}
+
+struct DeductCreditsRequest: APIRequest {
+    typealias Response = CreditsResponse
+    var path: String { "/api/credits/deduct" }
+    var method: String { "POST" }
+    var payload: DeductCreditsPayload
+    var idempotencyKey: String
+
+    init(payload: DeductCreditsPayload, idempotencyKey: String) {
+        self.payload = payload
+        self.idempotencyKey = idempotencyKey
+    }
+
+    var headers: [String : String] {
+        ["Content-Type": "application/json", "Idempotency-Key": idempotencyKey]
+    }
+
+    var body: Data? { try? JSONEncoder().encode(payload) }
+}
+
+struct DeductCreditsPayload: Codable {
+    let amount: Int
+    let reelID: UUID
+    let reason: String
+}
+
+struct RefundCreditsRequest: APIRequest {
+    typealias Response = CreditsResponse
+    var path: String { "/api/credits/refund" }
+    var method: String { "POST" }
+    var payload: RefundCreditsPayload
+
+    var headers: [String : String] { ["Content-Type": "application/json"] }
+    var body: Data? { try? JSONEncoder().encode(payload) }
+}
+
+struct RefundCreditsPayload: Codable {
+    let amount: Int
+    let reelID: UUID
+    let reason: String
+}
+
+struct GrantCreditsRequest: APIRequest {
+    typealias Response = CreditsResponse
+    var path: String { "/api/admin/grant-credits" }
+    var method: String { "POST" }
+    var payload: GrantCreditsPayload
+
+    var headers: [String : String] { ["Content-Type": "application/json"] }
+    var body: Data? { try? JSONEncoder().encode(payload) }
+}
+
+struct GrantCreditsPayload: Codable {
+    let amount: Int
+    let reason: String
+    let userID: UUID?
 }
 
 struct CreditsResponse: Codable {
