@@ -30,7 +30,7 @@ COPY --chown=appuser:appuser requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir wheel && \
-    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir --root-user-action=ignore -r requirements.txt && \
     # Clean up build dependencies for smaller image
     apt-get remove -y build-essential libffi-dev && \
     apt-get autoremove -y --purge && \
