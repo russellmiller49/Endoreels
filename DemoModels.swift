@@ -142,6 +142,14 @@ struct EngagementSignals {
     let reactions: [String: Int]
 }
 
+struct UserProgress: Identifiable {
+    let id = UUID()
+    let reelID: UUID
+    let lastStepTitle: String
+    let progress: Double
+    let updatedAt: Date
+}
+
 struct CMETrack {
     let id = UUID()
     let title: String
@@ -221,6 +229,7 @@ final class DemoDataStore: ObservableObject {
     @Published var moderationQueue: [ModerationTicket] = []
     @Published var pipelineRuns: [PipelineRun] = []
     @Published var importedAssets: [MediaAsset] = []
+    @Published var continueWatching: [UserProgress] = []
 
     init() {
         seed()
@@ -441,6 +450,21 @@ final class DemoDataStore: ObservableObject {
         )
 
         reels = [mainReel, giReel]
+
+        continueWatching = [
+            UserProgress(
+                reelID: mainReel.id,
+                lastStepTitle: mainReel.steps.first?.title ?? "Step 1",
+                progress: 0.45,
+                updatedAt: Date().addingTimeInterval(-1800)
+            ),
+            UserProgress(
+                reelID: giReel.id,
+                lastStepTitle: giReel.steps.first(where: { $0.orderIndex == 3 })?.title ?? "Submucosal lift",
+                progress: 0.7,
+                updatedAt: Date().addingTimeInterval(-7200)
+            )
+        ]
 
         collections = [
             KnowledgeCollection(

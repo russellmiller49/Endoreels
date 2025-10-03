@@ -61,6 +61,9 @@ enum DemoAPI {
         if request is CreditsRequest {
             return CreditsResponse.demo as? R.Response
         }
+        if request is ProcessVideoRequest {
+            return ProcessVideoResponse.demo as? R.Response
+        }
         return nil
     }
 }
@@ -79,3 +82,62 @@ struct CreditsResponse: Codable {
     static let demo = CreditsResponse(balance: 3, transactions: CreditTransaction.demoTransactions)
 }
 
+struct ProcessVideoRequest: APIRequest {
+    typealias Response = ProcessVideoResponse
+    var path: String { "/api/process-video" }
+    var method: String { "POST" }
+    var payload: ProcessVideoPayload
+    var idempotencyKey: String
+
+    init(payload: ProcessVideoPayload, idempotencyKey: String = UUID().uuidString) {
+        self.payload = payload
+        self.idempotencyKey = idempotencyKey
+    }
+
+    var headers: [String : String] {
+        ["Content-Type": "application/json", "Idempotency-Key": idempotencyKey]
+    }
+
+    var body: Data? {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return try? encoder.encode(payload)
+    }
+}
+
+struct ProcessVideoPayload: Codable {
+    struct Asset: Codable {
+        enum Kind: String, Codable {
+            case video
+            case image
+            case audio
+        }
+
+        let id: UUID
+        let filename: String
+        let kind: Kind
+    }
+
+    let title: String
+    let abstract: String
+    let serviceLine: String
+    let assets: [Asset]
+}
+
+struct ProcessVideoResponse: Codable {
+    struct SuggestedStep: Codable {
+        let title: String
+        let focus: String
+        let captureType: String
+        let overlays: [String]
+        let confidence: Double
+    }
+
+    let steps: [SuggestedStep]
+
+    static let demo = ProcessVideoResponse(steps: [
+        SuggestedStep(title: "Clip imported – scene highlight", focus: "AI detected key airway view worth emphasizing.", captureType: "video", overlays: ["AI arrow on obstruction"], confidence: 0.82),
+        SuggestedStep(title: "Balloon dilation highlight", focus: "Freeze frame around 00:42 to call out maximum inflation.", captureType: "video", overlays: ["Timer overlay", "Pressure note"], confidence: 0.78),
+        SuggestedStep(title: "Outcome confirmation", focus: "Use annotated still showing lumen restored.", captureType: "image", overlays: ["Before/after split"], confidence: 0.74)
+    ])
+}

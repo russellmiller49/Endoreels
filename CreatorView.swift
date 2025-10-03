@@ -23,10 +23,12 @@ struct CreatorView: View {
     @State private var showPrivacyReport = false
     @State private var showReelPreview = false
     @State private var showCreditsHistory = false
+    @State private var showOnboarding = false
     @State private var stepDrafts: [StepDraft] = StepDraft.sample
     @State private var selectedStepID: UUID?
     @State private var editingStepDraft: StepDraft?
     @State private var stepPendingDeletion: StepDraft?
+    @State private var hasAppliedUserRole = false
     @State private var draftNotes: String = """
     Focus on demonstrating balloon dilation, instrument handling tips, and immediate airway reassessment.
     """.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -35,6 +37,12 @@ struct CreatorView: View {
     @State private var importError: String?
     @State private var editingAssetIdentifier: AssetIdentifier?
     @State private var isProcessingImport = false
+    @State private var selectedTemplate: StoryboardTemplate = .demo
+    @State private var selectedCasePreset: CasePreset = .demoPulmonary
+    @State private var isProcessingEnhanced = false
+    @State private var aiSuggestions: [AIStepSuggestion] = []
+    @State private var aiProcessingError: String?
+    @State private var lastEnhancedAt: Date?
 
     init(onClose: (() -> Void)? = nil) {
         self.onClose = onClose
@@ -44,7 +52,9 @@ struct CreatorView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 creditsBanner
+                presetSwitcher
                 caseOutline
+                templateSwitcher
                 storyboard
                 mediaLibrary
                 privacyChecklist
@@ -57,6 +67,11 @@ struct CreatorView: View {
             ToolbarItem(placement: .navigationBarLeading) {
                 if let onClose {
                     Button("Cancel") { onClose() }
+                }
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if let onClose {
+                    Button("Home") { onClose() }
                 }
             }
         }
@@ -94,6 +109,20 @@ struct CreatorView: View {
             }
         }
         .task { await appState.creditsStore.refresh() }
+        .task {
+            guard !hasAppliedUserRole, let role = appState.currentUser.role else { return }
+            serviceLine = role
+            hasAppliedUserRole = true
+            if role == .gastroenterology {
+                applyCasePreset(.demoGastro)
+            } else {
+                applyCasePreset(.demoPulmonary)
+            }
+        }
+        .onChange(of: appState.currentUser.role, initial: false) { oldValue, newValue in
+            guard let newValue else { return }
+            serviceLine = newValue
+        }
         .fileImporter(isPresented: $isImportingFiles, allowedContentTypes: [.movie, .image], allowsMultipleSelection: true) { result in
             switch result {
             case .success(let urls):
@@ -117,6 +146,10 @@ struct CreatorView: View {
                 Text("Asset unavailable")
             }
         }
+        .fullScreenCover(isPresented: $showOnboarding) {
+            OnboardingView()
+                .environmentObject(appState)
+        }
         .sheet(item: $editingStepDraft) { draft in
             NavigationStack {
                 StepEditorSheet(
@@ -139,6 +172,57 @@ struct CreatorView: View {
         } message: { step in
             Text("Deleting Step \(step.order) will remove its attachments.")
         }
+    }
+
+    private var templateSwitcher: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Start from template")
+                .font(.subheadline.weight(.semibold))
+            Picker("Storyboard Template", selection: $selectedTemplate) {
+                ForEach(StoryboardTemplate.allCases) { template in
+                    Text(template.displayName).tag(template)
+                }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: selectedTemplate) { _, newValue in
+                applyTemplate(newValue)
+            }
+            Button("Reset to Selected Template") {
+                applyTemplate(selectedTemplate)
+            }
+            .buttonStyle(.bordered)
+            Button {
+                showOnboarding = true
+            } label: {
+                Label("View Demo Tour", systemImage: "sparkles.tv")
+            }
+            .buttonStyle(.borderless)
+            .font(.caption)
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var presetSwitcher: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Build setup")
+                .font(.subheadline.weight(.semibold))
+            Picker("Case preset", selection: $selectedCasePreset) {
+                ForEach(CasePreset.allCases) { preset in
+                    Text(preset.displayName).tag(preset)
+                }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: selectedCasePreset) { _, newValue in
+                applyCasePreset(newValue)
+            }
+            Button("Reset Case Details") {
+                applyCasePreset(selectedCasePreset)
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
     }
 
     private var creditsBanner: some View {
@@ -179,6 +263,19 @@ struct CreatorView: View {
         VStack(alignment: .leading, spacing: 16) {
             header("Storyboard Builder")
             VStack(alignment: .leading, spacing: 12) {
+                if let lastEnhancedAt {
+                    Label("Enhanced suggestions generated \(lastEnhancedAt, format: .relative(presentation: .named))", systemImage: "bolt.badge.clock")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if !aiSuggestions.isEmpty {
+                    AISuggestionReviewView(
+                        suggestions: aiSuggestions,
+                        onReplace: replaceWithAISuggestions,
+                        onAppend: appendAISuggestions,
+                        onDismiss: { aiSuggestions.removeAll() }
+                    )
+                }
                 ForEach(stepDrafts) { step in
                     let linkedAssets = step.mediaAssetIDs.compactMap { id in
                         store.importedAssets.first(where: { $0.id == id })
@@ -206,7 +303,7 @@ struct CreatorView: View {
                     )
                         .onTapGesture { selectedStepID = step.id }
                 }
-                Button(action: addStep) {
+                Button(action: { addStep() }) {
                     Label("Add storyboard step", systemImage: "plus")
                         .frame(maxWidth: .infinity)
                 }
@@ -311,15 +408,26 @@ struct CreatorView: View {
                 Label("Collections: Airway Emergencies Sprint", systemImage: "bookmark.collection")
                 Label("Trust tier: Clinician (Blue)", systemImage: "checkmark.seal")
                 Button {
-                    Task {
-                        try? await appState.creditsStore.deductCredits(amount: 1, reelID: UUID(), reason: "Enhanced processing (placeholder)")
-                    }
+                    runEnhancedProcessing()
                 } label: {
-                    Label("Process with AI (1 credit)", systemImage: "bolt.circle")
-                        .frame(maxWidth: .infinity)
+                    HStack {
+                        if isProcessingEnhanced {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                        }
+                        Text(isProcessingEnhanced ? "Processing…" : "Process with AI (1 credit)")
+                        Image(systemName: "bolt.circle")
+                    }
+                    .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.orange)
+                .disabled(isProcessingEnhanced)
+                if let aiProcessingError {
+                    Text(aiProcessingError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
                 if let onClose {
                     Button(role: .destructive) {
                         onClose()
@@ -357,6 +465,60 @@ struct CreatorView: View {
         }
     }
 
+    private func runEnhancedProcessing() {
+        guard !isProcessingEnhanced else { return }
+        guard !store.importedAssets.isEmpty else {
+            aiProcessingError = "Import at least one media asset before running AI processing."
+            return
+        }
+        isProcessingEnhanced = true
+        aiProcessingError = nil
+
+        let assetsPayload = store.importedAssets.map { asset -> ProcessVideoPayload.Asset in
+            let kind: ProcessVideoPayload.Asset.Kind
+            switch asset.kind {
+            case .video: kind = .video
+            case .image: kind = .image
+            case .audio: kind = .audio
+            }
+            return ProcessVideoPayload.Asset(id: asset.id, filename: asset.filename, kind: kind)
+        }
+
+        let payload = ProcessVideoPayload(
+            title: title,
+            abstract: abstract,
+            serviceLine: serviceLine.displayName,
+            assets: assetsPayload
+        )
+
+        Task {
+            let client = APIClient()
+            do {
+                let response = try await client.send(ProcessVideoRequest(payload: payload))
+                let mapped = response.steps.enumerated().map { index, dto in
+                    AIStepSuggestion(
+                        title: dto.title,
+                        focus: dto.focus,
+                        captureType: StepDraft.CaptureType(rawValue: dto.captureType) ?? .video,
+                        overlays: dto.overlays,
+                        confidence: dto.confidence
+                    )
+                }
+                await MainActor.run {
+                    aiSuggestions = mapped
+                    lastEnhancedAt = Date()
+                    isProcessingEnhanced = false
+                }
+                try await appState.creditsStore.deductCredits(amount: 1, reelID: UUID(), reason: "Enhanced AI processing")
+            } catch {
+                await MainActor.run {
+                    aiProcessingError = error.localizedDescription
+                    isProcessingEnhanced = false
+                }
+            }
+        }
+    }
+
     private func options(from values: [String]) -> [String] {
         Array(Set(values)).sorted()
     }
@@ -365,7 +527,7 @@ struct CreatorView: View {
         serviceLine.defaultProcedures
     }
 
-    private func addStep() {
+    private func addStep(triggerTemplateUpdate: Bool = true) {
         let newOrder = (stepDrafts.max(by: { $0.order < $1.order })?.order ?? 0) + 1
         let step = StepDraft(
             order: newOrder,
@@ -379,11 +541,15 @@ struct CreatorView: View {
         )
         stepDrafts.append(step)
         selectedStepID = step.id
+        if triggerTemplateUpdate {
+            selectedTemplate = .blank
+        }
     }
 
     private func applyUpdatedStep(_ updated: StepDraft) {
         guard let index = stepDrafts.firstIndex(where: { $0.id == updated.id }) else { return }
         stepDrafts[index] = updated
+        selectedStepID = updated.id
         renumberSteps()
     }
 
@@ -394,6 +560,7 @@ struct CreatorView: View {
         let clone = source.duplicated(withOrder: newOrder)
         stepDrafts.insert(clone, at: index + 1)
         selectedStepID = clone.id
+        selectedTemplate = .blank
         renumberSteps()
     }
 
@@ -402,6 +569,7 @@ struct CreatorView: View {
         if selectedStepID == id {
             selectedStepID = stepDrafts.first?.id
         }
+        selectedTemplate = .blank
         renumberSteps()
     }
 
@@ -412,6 +580,7 @@ struct CreatorView: View {
         let step = stepDrafts.remove(at: index)
         stepDrafts.insert(step, at: target)
         selectedStepID = step.id
+        selectedTemplate = .blank
         renumberSteps()
     }
 
@@ -419,6 +588,105 @@ struct CreatorView: View {
         for idx in stepDrafts.indices {
             stepDrafts[idx].order = idx + 1
         }
+    }
+
+    private func applyTemplate(_ template: StoryboardTemplate) {
+        selectedTemplate = template
+        switch template {
+        case .demo:
+            stepDrafts = StepDraft.sample
+        case .blank:
+            stepDrafts = []
+            addStep(triggerTemplateUpdate: false)
+        }
+        selectedStepID = stepDrafts.first?.id
+    }
+
+    private func applyCasePreset(_ preset: CasePreset) {
+        selectedCasePreset = preset
+        switch preset {
+        case .demoPulmonary:
+            title = "Stent Rescue Run-through"
+            abstract = "Teaching reel for airway granulation rescue with privacy checklist."
+            serviceLine = .pulmonary
+            procedure = "Diagnostic Bronchoscopy"
+            detailedProcedure = "Bronchial stent rescue with balloon dilation"
+            anatomy = "Left Main Bronchus"
+            pathology = "Granulation Tissue"
+            device = "Boston Scientific Ultraflex Stent"
+            difficulty = "Advanced"
+            enableCME = true
+            includeVoiceover = true
+            draftNotes = """
+            Focus on demonstrating balloon dilation, instrument handling tips, and immediate airway reassessment.
+            """.trimmingCharacters(in: .whitespacesAndNewlines)
+            stepDrafts = StepDraft.sample
+        case .demoGastro:
+            title = "Cold EMR of Right Colon Lesion"
+            abstract = "Technique breakdown for a 35mm LST treated with cold EMR and traction clips."
+            serviceLine = .gastroenterology
+            procedure = "Endoscopic Mucosal Resection"
+            detailedProcedure = "Cold piecemeal EMR of large right colon LST"
+            anatomy = "Ascending Colon"
+            pathology = "LST-G Tumor"
+            device = "Olympus EndoTherapy Snare"
+            difficulty = "Advanced"
+            enableCME = true
+            includeVoiceover = true
+            draftNotes = """
+            Highlight submucosal lift technique, traction clip placement, and closure strategy.
+            """.trimmingCharacters(in: .whitespacesAndNewlines)
+            stepDrafts = StepDraft.demoGastro
+        case .blank:
+            title = "Untitled Case"
+            abstract = ""
+            serviceLine = appState.currentUser.role ?? .pulmonary
+            procedure = ""
+            detailedProcedure = ""
+            anatomy = ""
+            pathology = ""
+            device = ""
+            difficulty = "Intro"
+            enableCME = false
+            includeVoiceover = false
+            draftNotes = ""
+            stepDrafts = []
+            addStep(triggerTemplateUpdate: false)
+        }
+        selectedStepID = stepDrafts.first?.id
+        if preset != .blank {
+            selectedTemplate = .demo
+        } else {
+            selectedTemplate = .blank
+        }
+    }
+
+    private func replaceWithAISuggestions() {
+        guard !aiSuggestions.isEmpty else { return }
+        stepDrafts = aiSuggestions.enumerated().map { index, suggestion in
+            let step = suggestion.makeStep(order: index + 1)
+            return step
+        }
+        selectedStepID = stepDrafts.first?.id
+        aiSuggestions.removeAll()
+        lastEnhancedAt = Date()
+        selectedTemplate = .demo
+    }
+
+    private func appendAISuggestions() {
+        guard !aiSuggestions.isEmpty else { return }
+        var current = stepDrafts
+        var nextOrder = (current.map { $0.order }.max() ?? 0) + 1
+        for suggestion in aiSuggestions {
+            let step = suggestion.makeStep(order: nextOrder)
+            current.append(step)
+            nextOrder += 1
+        }
+        stepDrafts = current
+        selectedStepID = stepDrafts.last?.id
+        aiSuggestions.removeAll()
+        lastEnhancedAt = Date()
+        selectedTemplate = .demo
     }
 
     private func header(_ title: String) -> some View {
@@ -525,7 +793,9 @@ struct CreatorView: View {
         }
 
         if let data = try await item.loadTransferable(type: Data.self) {
-            let tempURL = tempURL(for: UUID().uuidString + ".asset")
+            let imageContentType = item.supportedContentTypes.first(where: { $0.conforms(to: .image) })
+            let fileExtension = imageContentType?.preferredFilenameExtension ?? "jpg"
+            let tempURL = tempURL(for: "\(UUID().uuidString).\(fileExtension)")
             try data.write(to: tempURL)
             return try await MediaAsset.make(from: tempURL, source: .photoLibrary)
         }
@@ -569,6 +839,36 @@ struct CreatorView: View {
             try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         }
         return base.appendingPathComponent(filename)
+    }
+}
+
+private enum StoryboardTemplate: String, CaseIterable, Identifiable {
+    case demo
+    case blank
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .demo: return "Demo"
+        case .blank: return "Blank"
+        }
+    }
+}
+
+private enum CasePreset: String, CaseIterable, Identifiable {
+    case demoPulmonary
+    case demoGastro
+    case blank
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .demoPulmonary: return "Demo Pulmonary"
+        case .demoGastro: return "Demo GI"
+        case .blank: return "Blank"
+        }
     }
 }
 
@@ -625,6 +925,89 @@ private struct StepDraft: Identifiable {
         StepDraft(order: 2, title: "Balloon Dilation", focus: "12mm balloon inflation with visual cues.", captureType: .video, overlays: ["Timer overlay", "Callout for pressure"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false),
         StepDraft(order: 3, title: "Post-Procedure Review", focus: "Show restored lumen and mucosal perfusion.", captureType: .image, overlays: ["Before/after split"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false)
     ]
+
+    static let demoGastro: [StepDraft] = [
+        StepDraft(order: 1, title: "Lesion Inspection", focus: "Paris IIa+Is lesion with NICE type 2 pattern.", captureType: .video, overlays: ["NICE classification overlay", "Tattoo marker"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false),
+        StepDraft(order: 2, title: "Submucosal Lift", focus: "Orise gel injection elevated lesion without fibrosis.", captureType: .video, overlays: ["Injection plane arc", "Needle entry point"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false),
+        StepDraft(order: 3, title: "Cold Resection", focus: "Traction clip improved visualization; all pieces retrieved.", captureType: .video, overlays: ["Clip traction direction", "Specimen bucket"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false),
+        StepDraft(order: 4, title: "Defect Assessment", focus: "No bleeding; prophylactic clips placed.", captureType: .image, overlays: ["Closure pattern diagram"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false)
+    ]
+}
+
+private struct AISuggestionReviewView: View {
+    let suggestions: [AIStepSuggestion]
+    let onReplace: () -> Void
+    let onAppend: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("AI Suggestions Ready", systemImage: "sparkles")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Button("Dismiss", action: onDismiss)
+                    .buttonStyle(.borderless)
+            }
+            Text("Review suggested framing, then choose to replace your storyboard or append the new steps.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(suggestions) { suggestion in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(suggestion.title)
+                                .font(.subheadline.weight(.semibold))
+                                .lineLimit(2)
+                            Text(suggestion.focus)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("Capture: \(suggestion.captureType.label)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            if !suggestion.overlays.isEmpty {
+                                AnnotationChips(annotations: suggestion.overlays)
+                            }
+                        }
+                        .padding()
+                        .frame(width: 220, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+                    }
+                }
+            }
+            HStack {
+                Button("Replace storyboard", action: onReplace)
+                    .buttonStyle(.borderedProminent)
+                Button("Append steps", action: onAppend)
+                    .buttonStyle(.bordered)
+            }
+            .font(.caption)
+        }
+        .padding()
+        .background(RoundedRectangle(cornerRadius: 16).stroke(Color.accentColor.opacity(0.3), lineWidth: 1))
+    }
+}
+
+private struct AIStepSuggestion: Identifiable {
+    let id = UUID()
+    let title: String
+    let focus: String
+    let captureType: StepDraft.CaptureType
+    let overlays: [String]
+    let confidence: Double
+
+    func makeStep(order: Int) -> StepDraft {
+        StepDraft(
+            order: order,
+            title: title,
+            focus: focus,
+            captureType: captureType,
+            overlays: overlays,
+            mediaAssetIDs: [],
+            audioAssetIDs: [],
+            prefersAutoTranscript: true
+        )
+    }
 }
 
 private struct TimelineStepCard: View {
@@ -1521,6 +1904,7 @@ private struct PrivacyReviewSheet: View {
         CreatorView()
     }
     .environmentObject(DemoDataStore())
+    .environmentObject(AppState())
 }
 
 private struct AssetIdentifier: Identifiable {

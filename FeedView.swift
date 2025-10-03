@@ -3,11 +3,16 @@ import SwiftUI
 struct FeedView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var store: DemoDataStore
+    @Binding var selectedReelID: UUID?
     @State private var selectedServiceLine: ServiceLine? = nil
     @State private var selectedProcedure: String? = nil
     @State private var keywordQuery: String = ""
     @State private var showingSettings = false
     @State private var showingFilters = false
+    @State private var showOnboarding = false
+    @State private var searchQuery: String = ""
+    @State private var suggestions: [SearchSuggestion] = []
+    @State private var selectedFilterChips: Set<FilterChip> = []
 
     private var filteredReels: [Reel] {
         var reels = store.reels
@@ -20,10 +25,26 @@ struct FeedView: View {
             reels = reels.filter { $0.procedure == procedure }
         }
 
-        let tokens = keywordTokens
-        if !tokens.isEmpty {
+        let verificationFilters = selectedFilterChips.compactMap { chip -> VerificationTier? in
+            if case let .verification(tier) = chip { return tier }
+            return nil
+        }
+        if !verificationFilters.isEmpty {
+            reels = reels.filter { verificationFilters.contains($0.author.verification.tier) }
+        }
+
+        let difficultyFilters = selectedFilterChips.compactMap { chip -> String? in
+            if case let .difficulty(level) = chip { return level }
+            return nil
+        }
+        if !difficultyFilters.isEmpty {
+            reels = reels.filter { difficultyFilters.contains($0.difficulty) }
+        }
+
+        let filterTokens = keywordTokens
+        if !filterTokens.isEmpty {
             reels = reels.filter { reel in
-                tokens.allSatisfy { token in
+                filterTokens.allSatisfy { token in
                     reel.anatomy.lowercased().contains(token) ||
                     reel.pathology.lowercased().contains(token) ||
                     reel.device.lowercased().contains(token)
@@ -31,7 +52,23 @@ struct FeedView: View {
             }
         }
 
+        if !searchTokens.isEmpty {
+            reels = reels.filter { matchesSearch(reel: $0, tokens: searchTokens) }
+        }
+
+        if selectedFilterChips.contains(.recent) {
+            reels = reels.sorted { $0.createdAt > $1.createdAt }
+        }
+
         return reels
+    }
+
+    private var searchTokens: [String] {
+        searchQuery
+            .lowercased()
+            .split(whereSeparator: { $0.isWhitespace })
+            .map { String($0) }
+            .filter { !$0.isEmpty }
     }
 
     private var keywordTokens: [String] {
@@ -61,14 +98,45 @@ struct FeedView: View {
     }
 
     private func clearFilters() {
-        selectedServiceLine = nil
+        selectedServiceLine = appState.currentUser.role
         selectedProcedure = nil
         keywordQuery = ""
+        searchQuery = ""
+        selectedFilterChips.removeAll()
+        suggestions = []
     }
 
     var body: some View {
         List {
-            if let hero = store.reels.first {
+            Section {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Explore the EndoReels demo")
+                        .font(.headline)
+                    Text("Preview the guided tour or jump into a sample case to see how the platform works.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button {
+                        showOnboarding = true
+                    } label: {
+                        Label("View Demo Tour", systemImage: "sparkles.tv")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(.vertical, 8)
+            }
+            .listRowBackground(Color(.secondarySystemBackground))
+            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+
+            if !store.continueWatching.isEmpty {
+                continueWatchingSection
+            }
+
+            if !filterChipOptions.isEmpty {
+                filtersSection
+            }
+
+            if let hero = (filteredReels.first ?? store.reels.first) {
                 heroSection(hero)
             }
 
@@ -113,7 +181,27 @@ struct FeedView: View {
                 onClear: clearFilters
             )
         }
-        .onChange(of: selectedServiceLine) { _, newValue in
+        .fullScreenCover(isPresented: $showOnboarding) {
+            OnboardingView()
+                .environmentObject(appState)
+        }
+        .searchable(text: $searchQuery, placement: .navigationBarDrawer(displayMode: .always)) {
+            ForEach(suggestions) { suggestion in
+                Button {
+                    applySuggestion(suggestion)
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(suggestion.title)
+                        if let subtitle = suggestion.subtitle {
+                            Text(subtitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
+        .onChange(of: selectedServiceLine, initial: false) { oldValue, newValue in
             guard let newValue else {
                 selectedProcedure = nil
                 return
@@ -128,12 +216,72 @@ struct FeedView: View {
                 selectedServiceLine = appState.currentUser.role
             }
         }
-        .navigationDestination(for: UUID.self) { reelID in
-            if let reel = store.reels.first(where: { $0.id == reelID }) {
-                ReelDetailView(reel: reel)
-            } else {
-                Text("Reel unavailable")
-                    .foregroundStyle(.secondary)
+        .onChange(of: appState.currentUser.role, initial: false) { oldValue, newValue in
+            selectedServiceLine = newValue
+            selectedProcedure = nil
+            keywordQuery = ""
+            searchQuery = ""
+            selectedFilterChips.removeAll()
+            suggestions = []
+        }
+        .onChange(of: searchQuery, initial: false) { oldValue, newValue in
+            updateSuggestions(for: newValue)
+        }
+    }
+
+    @ViewBuilder
+    private var continueWatchingSection: some View {
+        Section(header: Text("Continue Watching")) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(store.continueWatching) { progress in
+                        if let reel = store.reels.first(where: { $0.id == progress.reelID }) {
+                            Button {
+                                selectedReelID = reel.id
+                            } label: {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(reel.title)
+                                        .font(.subheadline.weight(.semibold))
+                                        .lineLimit(2)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    Text(progress.lastStepTitle)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    ProgressView(value: progress.progress)
+                                        .progressViewStyle(.linear)
+                                    Text("Updated \(progress.updatedAt, format: .relative(presentation: .named))")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding()
+                                .frame(width: 220, alignment: .leading)
+                                .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+        }
+    }
+
+    @ViewBuilder
+    private var filtersSection: some View {
+        Section {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(filterChipOptions) { chip in
+                        FilterChipView(
+                            chip: chip,
+                            isSelected: selectedFilterChips.contains(chip),
+                            action: { toggleFilterChip(chip) }
+                        )
+                    }
+                }
+                .padding(.vertical, 4)
+                .padding(.horizontal)
             }
         }
     }
@@ -176,13 +324,111 @@ struct FeedView: View {
                     }
                 }
 
-                NavigationLink("Open Reel") {
-                    ReelDetailView(reel: reel)
+                NavigationLink(value: reel.id) {
+                    Text("Open Reel")
                 }
                 .buttonStyle(.borderedProminent)
             }
             .padding(.vertical)
         }
+    }
+
+    private var filterChipOptions: [FilterChip] {
+        var chips: [FilterChip] = [.recent]
+        chips.append(contentsOf: [VerificationTier.educatorGold, .clinicianBlue].map { FilterChip.verification($0) })
+        let difficulties = Array(Set(store.reels.map { $0.difficulty })).sorted()
+        chips.append(contentsOf: difficulties.map { FilterChip.difficulty($0) })
+        return chips
+    }
+
+    private func toggleFilterChip(_ chip: FilterChip) {
+        if selectedFilterChips.contains(chip) {
+            selectedFilterChips.remove(chip)
+        } else {
+            if chip == .recent {
+                selectedFilterChips.remove(.recent)
+            }
+            selectedFilterChips.insert(chip)
+        }
+    }
+
+    private func matchesSearch(reel: Reel, tokens: [String]) -> Bool {
+        let title = reel.title.lowercased()
+        let anatomy = reel.anatomy.lowercased()
+        let pathology = reel.pathology.lowercased()
+        let device = reel.device.lowercased()
+        let tags = reel.tags.map { $0.lowercased() }
+        return tokens.allSatisfy { token in
+            title.contains(token) || anatomy.contains(token) || pathology.contains(token) || device.contains(token) || tags.contains(where: { $0.contains(token) })
+        }
+    }
+
+    private func updateSuggestions(for query: String) {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2 else {
+            suggestions = []
+            return
+        }
+        let lower = trimmed.lowercased()
+        var results: [SearchSuggestion] = []
+        var seen = Set<String>()
+
+        for reel in store.reels {
+            if reel.title.lowercased().contains(lower) && seen.insert("title-\(reel.id)").inserted {
+                results.append(SearchSuggestion(
+                    title: reel.title,
+                    subtitle: "Open case",
+                    action: .openReel(reel.id)
+                ))
+            }
+
+            for tag in reel.tags {
+                if tag.lowercased().contains(lower) && seen.insert("tag-\(tag)").inserted {
+                    results.append(SearchSuggestion(
+                        title: tag,
+                        subtitle: "Tag match",
+                        action: .search(tag)
+                    ))
+                }
+            }
+
+            if reel.anatomy.lowercased().contains(lower) && seen.insert("anatomy-\(reel.anatomy)").inserted {
+                results.append(SearchSuggestion(
+                    title: reel.anatomy,
+                    subtitle: "Anatomy",
+                    action: .search(reel.anatomy)
+                ))
+            }
+
+            if reel.pathology.lowercased().contains(lower) && seen.insert("pathology-\(reel.pathology)").inserted {
+                results.append(SearchSuggestion(
+                    title: reel.pathology,
+                    subtitle: "Pathology",
+                    action: .search(reel.pathology)
+                ))
+            }
+
+            if reel.device.lowercased().contains(lower) && seen.insert("device-\(reel.device)").inserted {
+                results.append(SearchSuggestion(
+                    title: reel.device,
+                    subtitle: "Device",
+                    action: .search(reel.device)
+                ))
+            }
+        }
+
+        suggestions = Array(results.prefix(8))
+    }
+
+    private func applySuggestion(_ suggestion: SearchSuggestion) {
+        switch suggestion.action {
+        case .search(let value):
+            searchQuery = value
+        case .openReel(let id):
+            selectedReelID = id
+            searchQuery = ""
+        }
+        suggestions = []
     }
 }
 
@@ -356,6 +602,7 @@ struct DemoSetupSheet: View {
     @State private var useSyntheticAssets = true
     @State private var showCMETracks = true
     @State private var anonymizeAuthors = false
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
@@ -384,13 +631,75 @@ struct DemoSetupSheet: View {
             }
         }
     }
+}
 
-    @Environment(\.dismiss) private var dismiss
+private enum FilterChip: Hashable, Identifiable {
+    case recent
+    case verification(VerificationTier)
+    case difficulty(String)
+
+    var id: String {
+        switch self {
+        case .recent: return "recent"
+        case .verification(let tier): return "verification-\(tier.rawValue)"
+        case .difficulty(let level): return "difficulty-\(level)"
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .recent: return "Recent"
+        case .verification(let tier): return tier.displayName
+        case .difficulty(let level): return level
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .recent: return "clock";
+        case .verification: return "checkmark.seal"
+        case .difficulty: return "star"
+        }
+    }
+}
+
+private struct FilterChipView: View {
+    let chip: FilterChip
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: chip.iconName)
+                Text(chip.label)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(isSelected ? Color.accentColor.opacity(0.2) : Color(.secondarySystemBackground))
+            .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct SearchSuggestion: Identifiable {
+    enum Action {
+        case search(String)
+        case openReel(UUID)
+    }
+
+    let id = UUID()
+    let title: String
+    let subtitle: String?
+    let action: Action
 }
 
 #Preview {
     NavigationStack {
-        FeedView()
+        FeedView(selectedReelID: .constant(nil))
     }
     .environmentObject(DemoDataStore())
+    .environmentObject(AppState())
 }
