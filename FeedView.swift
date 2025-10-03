@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct FeedView: View {
+    @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var store: DemoDataStore
     @State private var selectedServiceLine: ServiceLine? = nil
     @State private var selectedProcedure: String? = nil
@@ -120,6 +121,11 @@ struct FeedView: View {
             let options = newValue.defaultProcedures
             if let current = selectedProcedure, !options.contains(current) {
                 selectedProcedure = nil
+            }
+        }
+        .task {
+            if selectedServiceLine == nil {
+                selectedServiceLine = appState.currentUser.role
             }
         }
         .navigationDestination(for: UUID.self) { reelID in

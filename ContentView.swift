@@ -8,6 +8,7 @@ enum RootTab: Hashable {
 }
 
 struct ContentView: View {
+    @EnvironmentObject private var appState: AppState
     @StateObject private var store = DemoDataStore()
     @State private var selectedTab: RootTab = .feed
 

@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 
 struct CreatorView: View {
     @EnvironmentObject private var store: DemoDataStore
+    @EnvironmentObject private var appState: AppState
     let onClose: (() -> Void)?
 
     @State private var title: String = "Stent Rescue Run-through"
@@ -21,6 +22,7 @@ struct CreatorView: View {
     @State private var includeVoiceover: Bool = true
     @State private var showPrivacyReport = false
     @State private var showReelPreview = false
+    @State private var showCreditsHistory = false
     @State private var stepDrafts: [StepDraft] = StepDraft.sample
     @State private var selectedStepID: UUID?
     @State private var draftNotes: String = """
@@ -39,6 +41,7 @@ struct CreatorView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                creditsBanner
                 caseOutline
                 storyboard
                 mediaLibrary
@@ -58,6 +61,11 @@ struct CreatorView: View {
         .sheet(isPresented: $showPrivacyReport) {
             PrivacyReviewSheet()
                 .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showCreditsHistory) {
+            NavigationStack {
+                CreditsHistoryView(store: appState.creditsStore)
+            }
         }
         .sheet(isPresented: $showReelPreview) {
             ReelPreviewSheet(
@@ -83,6 +91,7 @@ struct CreatorView: View {
                 procedure = options.first ?? ""
             }
         }
+        .task { await appState.creditsStore.refresh() }
         .fileImporter(isPresented: $isImportingFiles, allowedContentTypes: [.movie, .image], allowsMultipleSelection: true) { result in
             switch result {
             case .success(let urls):
@@ -105,6 +114,12 @@ struct CreatorView: View {
             } else {
                 Text("Asset unavailable")
             }
+        }
+    }
+
+    private var creditsBanner: some View {
+        CreditsBanner(store: appState.creditsStore) {
+            showCreditsHistory = true
         }
     }
 
@@ -262,6 +277,16 @@ struct CreatorView: View {
                 Label("Feed visibility: Specialists in Pulmonology", systemImage: "rectangle.stack.badge.play")
                 Label("Collections: Airway Emergencies Sprint", systemImage: "bookmark.collection")
                 Label("Trust tier: Clinician (Blue)", systemImage: "checkmark.seal")
+                Button {
+                    Task {
+                        try? await appState.creditsStore.deductCredits(amount: 1, reelID: UUID(), reason: "Enhanced processing (placeholder)")
+                    }
+                } label: {
+                    Label("Process with AI (1 credit)", systemImage: "bolt.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
                 if let onClose {
                     Button(role: .destructive) {
                         onClose()
