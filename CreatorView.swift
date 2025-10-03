@@ -4,22 +4,9 @@ import AVKit
 import AVFoundation
 import UniformTypeIdentifiers
 
-enum ServiceLine: String, CaseIterable, Identifiable {
-    case pulmonary
-    case gastroenterology
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .pulmonary: return "Pulmonary"
-        case .gastroenterology: return "Gastroenterology"
-        }
-    }
-}
-
 struct CreatorView: View {
     @EnvironmentObject private var store: DemoDataStore
+    let onClose: (() -> Void)?
 
     @State private var title: String = "Stent Rescue Run-through"
     @State private var abstract: String = "Teaching reel for airway granulation rescue with privacy checklist."
@@ -45,6 +32,10 @@ struct CreatorView: View {
     @State private var editingAssetIdentifier: AssetIdentifier?
     @State private var isProcessingImport = false
 
+    init(onClose: (() -> Void)? = nil) {
+        self.onClose = onClose
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -57,6 +48,13 @@ struct CreatorView: View {
             .padding()
         }
         .navigationTitle("Creator Studio")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                if let onClose {
+                    Button("Cancel") { onClose() }
+                }
+            }
+        }
         .sheet(isPresented: $showPrivacyReport) {
             PrivacyReviewSheet()
                 .presentationDetents([.medium, .large])
@@ -80,7 +78,7 @@ struct CreatorView: View {
             )
         }
         .onChange(of: serviceLine) { _, newValue in
-            let options = procedureOptions(for: newValue)
+            let options = newValue.defaultProcedures
             if !options.contains(procedure) {
                 procedure = options.first ?? ""
             }
@@ -146,7 +144,18 @@ struct CreatorView: View {
                     let linkedAssets = step.mediaAssetIDs.compactMap { id in
                         store.importedAssets.first(where: { $0.id == id })
                     }
-                    TimelineStepCard(step: step, isSelected: step.id == selectedStepID, linkedAssets: linkedAssets)
+                    let linkedAudioAssets = step.audioAssetIDs.compactMap { id in
+                        store.importedAssets.first(where: { $0.id == id })
+                    }
+                    TimelineStepCard(
+                        step: step,
+                        isSelected: step.id == selectedStepID,
+                        linkedAssets: linkedAssets,
+                        audioAssets: linkedAudioAssets,
+                        onToggleTranscript: {
+                            toggleTranscriptPreference(for: step.id)
+                        }
+                    )
                         .onTapGesture { selectedStepID = step.id }
                 }
                 Button(action: addStep) {
@@ -198,7 +207,8 @@ struct CreatorView: View {
                 } else {
                     ForEach(store.importedAssets) { asset in
                         let isAttached = selectedStepID.flatMap { id in
-                            stepDrafts.first(where: { $0.id == id })?.mediaAssetIDs.contains(asset.id)
+                            guard let step = stepDrafts.first(where: { $0.id == id }) else { return false }
+                            return step.mediaAssetIDs.contains(asset.id) || step.audioAssetIDs.contains(asset.id)
                         } ?? false
                         MediaAssetRow(
                             asset: asset,
@@ -208,7 +218,8 @@ struct CreatorView: View {
                             editAction: { editingAssetIdentifier = AssetIdentifier(id: asset.id) }
                         )
                         .contextMenu {
-                            Button(isAttached ? "Remove from selected step" : "Attach to selected step", action: { attachAsset(asset) })
+                            let contextLabel = asset.kind == .audio ? (isAttached ? "Remove audio" : "Attach audio") : (isAttached ? "Remove from selected step" : "Attach to selected step")
+                            Button(contextLabel, action: { attachAsset(asset) })
                                 .disabled(selectedStepID == nil)
                             Button("Edit media", action: { editingAssetIdentifier = AssetIdentifier(id: asset.id) })
                         }
@@ -251,6 +262,15 @@ struct CreatorView: View {
                 Label("Feed visibility: Specialists in Pulmonology", systemImage: "rectangle.stack.badge.play")
                 Label("Collections: Airway Emergencies Sprint", systemImage: "bookmark.collection")
                 Label("Trust tier: Clinician (Blue)", systemImage: "checkmark.seal")
+                if let onClose {
+                    Button(role: .destructive) {
+                        onClose()
+                    } label: {
+                        Label("Cancel & Return Home", systemImage: "house")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
                 Button {
                     showReelPreview = true
                 } label: {
@@ -284,27 +304,7 @@ struct CreatorView: View {
     }
 
     private var currentProcedureOptions: [String] {
-        procedureOptions(for: serviceLine)
-    }
-
-    private func procedureOptions(for line: ServiceLine) -> [String] {
-        switch line {
-        case .pulmonary:
-            return [
-                "Diagnostic Bronchoscopy",
-                "EBUS",
-                "Therapeutic Bronchoscopy",
-                "Pleural Procedure",
-                "Other"
-            ]
-        case .gastroenterology:
-            return [
-                "EGD",
-                "Colonoscopy",
-                "EUS",
-                "Other"
-            ]
-        }
+        serviceLine.defaultProcedures
     }
 
     private func addStep() {
@@ -315,7 +315,9 @@ struct CreatorView: View {
             focus: "Key point placeholder",
             captureType: .video,
             overlays: [],
-            mediaAssetIDs: []
+            mediaAssetIDs: [],
+            audioAssetIDs: [],
+            prefersAutoTranscript: false
         )
         stepDrafts.append(step)
     }
@@ -332,26 +334,67 @@ struct CreatorView: View {
         guard let selectedStepID, let index = stepDrafts.firstIndex(where: { $0.id == selectedStepID }) else { return }
         var updatedStep = stepDrafts[index]
 
-        if let existingIndex = updatedStep.mediaAssetIDs.firstIndex(of: asset.id) {
-            updatedStep.mediaAssetIDs.remove(at: existingIndex)
-        } else {
-            if updatedStep.mediaAssetIDs.count >= 2 {
-                updatedStep.mediaAssetIDs.removeFirst()
+        switch asset.kind {
+        case .audio:
+            if let existingIndex = updatedStep.audioAssetIDs.firstIndex(of: asset.id) {
+                updatedStep.audioAssetIDs.remove(at: existingIndex)
+            } else {
+                if updatedStep.audioAssetIDs.count >= 1 {
+                    updatedStep.audioAssetIDs.removeFirst()
+                }
+                updatedStep.audioAssetIDs.append(asset.id)
+                if updatedStep.prefersAutoTranscript {
+                    generateTranscripts(for: updatedStep)
+                }
             }
-            updatedStep.mediaAssetIDs.append(asset.id)
-        }
+        case .video, .image:
+            if let existingIndex = updatedStep.mediaAssetIDs.firstIndex(of: asset.id) {
+                updatedStep.mediaAssetIDs.remove(at: existingIndex)
+            } else {
+                if updatedStep.mediaAssetIDs.count >= 2 {
+                    updatedStep.mediaAssetIDs.removeFirst()
+                }
+                updatedStep.mediaAssetIDs.append(asset.id)
+            }
 
-        let attachedAssets = updatedStep.mediaAssetIDs.compactMap { id in
-            store.importedAssets.first(where: { $0.id == id })
-        }
+            let attachedAssets = updatedStep.mediaAssetIDs.compactMap { id in
+                store.importedAssets.first(where: { $0.id == id })
+            }
 
-        if attachedAssets.contains(where: { $0.kind == .video }) {
-            updatedStep.captureType = .video
-        } else if attachedAssets.contains(where: { $0.kind == .image }) {
-            updatedStep.captureType = .image
+            if attachedAssets.contains(where: { $0.kind == .video }) {
+                updatedStep.captureType = .video
+            } else if attachedAssets.contains(where: { $0.kind == .image }) {
+                updatedStep.captureType = .image
+            }
         }
 
         stepDrafts[index] = updatedStep
+    }
+
+    private func toggleTranscriptPreference(for stepID: UUID) {
+        guard let index = stepDrafts.firstIndex(where: { $0.id == stepID }) else { return }
+        stepDrafts[index].prefersAutoTranscript.toggle()
+        if stepDrafts[index].prefersAutoTranscript {
+            generateTranscripts(for: stepDrafts[index])
+        }
+    }
+
+    private func generateTranscripts(for step: StepDraft) {
+        for audioID in step.audioAssetIDs {
+            guard let assetIndex = store.importedAssets.firstIndex(where: { $0.id == audioID }) else { continue }
+            var asset = store.importedAssets[assetIndex]
+            if asset.transcript == nil || asset.transcript?.isEmpty == true {
+                asset.updateTranscript(sampleTranscript(for: asset))
+                store.updateImportedAsset(asset)
+            }
+        }
+    }
+
+    private func sampleTranscript(for asset: MediaAsset) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return "AI transcript generated \(formatter.string(from: .now)). Highlights key narration for review."
     }
 
     private func handlePhotoSelections(_ items: [PhotosPickerItem]) async {
@@ -462,11 +505,13 @@ private struct StepDraft: Identifiable {
     var captureType: CaptureType
     var overlays: [String]
     var mediaAssetIDs: [MediaAsset.ID]
+    var audioAssetIDs: [MediaAsset.ID]
+    var prefersAutoTranscript: Bool
 
     static let sample: [StepDraft] = [
-        StepDraft(order: 1, title: "Airway Inspection", focus: "Identify granulation tissue and stent margins.", captureType: .video, overlays: ["Arrow on obstruction", "Text: keep suction ready"], mediaAssetIDs: []),
-        StepDraft(order: 2, title: "Balloon Dilation", focus: "12mm balloon inflation with visual cues.", captureType: .video, overlays: ["Timer overlay", "Callout for pressure"], mediaAssetIDs: []),
-        StepDraft(order: 3, title: "Post-Procedure Review", focus: "Show restored lumen and mucosal perfusion.", captureType: .image, overlays: ["Before/after split"], mediaAssetIDs: [])
+        StepDraft(order: 1, title: "Airway Inspection", focus: "Identify granulation tissue and stent margins.", captureType: .video, overlays: ["Arrow on obstruction", "Text: keep suction ready"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false),
+        StepDraft(order: 2, title: "Balloon Dilation", focus: "12mm balloon inflation with visual cues.", captureType: .video, overlays: ["Timer overlay", "Callout for pressure"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false),
+        StepDraft(order: 3, title: "Post-Procedure Review", focus: "Show restored lumen and mucosal perfusion.", captureType: .image, overlays: ["Before/after split"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false)
     ]
 }
 
@@ -474,6 +519,8 @@ private struct TimelineStepCard: View {
     let step: StepDraft
     let isSelected: Bool
     let linkedAssets: [MediaAsset]
+    let audioAssets: [MediaAsset]
+    let onToggleTranscript: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -514,6 +561,13 @@ private struct TimelineStepCard: View {
                         .foregroundStyle(.blue)
                 }
             }
+            if !audioAssets.isEmpty {
+                AudioAttachmentSummary(
+                    assets: audioAssets,
+                    prefersTranscript: step.prefersAutoTranscript,
+                    onToggleTranscript: onToggleTranscript
+                )
+            }
             if !step.overlays.isEmpty {
                 AnnotationChips(annotations: step.overlays)
             }
@@ -543,48 +597,165 @@ private struct TimelineStepCard: View {
     }
 }
 
+private struct AudioAttachmentSummary: View {
+    let assets: [MediaAsset]
+    let prefersTranscript: Bool
+    let onToggleTranscript: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Label("Attached audio", systemImage: "speaker.wave.2.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button(action: onToggleTranscript) {
+                    Label(preferButtonTitle, systemImage: prefersTranscript ? "text.badge.checkmark" : "text.book.closed")
+                }
+                .buttonStyle(.bordered)
+                .font(.caption2)
+            }
+
+            ForEach(assets, id: \.id) { asset in
+                VStack(alignment: .leading, spacing: 4) {
+                    Label(asset.filename, systemImage: "waveform")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    if prefersTranscript {
+                        Text(asset.transcript ?? "Transcript will be generated once published.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+            }
+        }
+    }
+
+    private var preferButtonTitle: String {
+        prefersTranscript ? "Hide transcript" : "Auto transcript"
+    }
+}
+
 private struct MediaAssetPreview: View {
     let asset: MediaAsset
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label(asset.filename, systemImage: asset.kind == .video ? "play.rectangle" : "photo")
+                Label(asset.filename, systemImage: headerIcon)
                     .font(.caption.weight(.semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                 Spacer()
-                if let duration = asset.duration, asset.kind == .video {
+                if let duration = asset.duration, asset.kind != .image {
                     Label("\(Int(duration.rounded())) s", systemImage: "timer")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
             }
 
-            if let preview = asset.thumbnail {
-                Image(uiImage: preview)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(height: 140)
-                    .clipped()
-                    .cornerRadius(12)
-            } else {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.gray.opacity(0.1))
-                    .overlay {
-                        Image(systemName: imageSystemName)
-                            .font(.largeTitle)
-                            .foregroundStyle(.gray)
-                    }
-                    .frame(height: 140)
+            switch asset.kind {
+            case .video:
+                if let preview = asset.thumbnail {
+                    Image(uiImage: preview)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(height: 140)
+                        .clipped()
+                        .cornerRadius(12)
+                } else {
+                    placeholder(height: 140)
+                }
+            case .image:
+                if let image = asset.editedImage ?? asset.thumbnail {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(height: 140)
+                        .clipped()
+                        .cornerRadius(12)
+                } else {
+                    placeholder(height: 140)
+                }
+            case .audio:
+                AudioPreviewWaveform(duration: asset.duration ?? 0)
+                    .frame(height: 80)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.blue.opacity(0.08)))
+            }
+
+            if let transcript = asset.transcript, !transcript.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("Transcript", systemImage: "text.alignleft")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text(transcript)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                }
             }
         }
     }
 
-    private var imageSystemName: String {
+    @ViewBuilder
+    private func placeholder(height: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 12)
+            .fill(Color.gray.opacity(0.1))
+            .overlay {
+                Image(systemName: placeholderIcon)
+                    .font(.largeTitle)
+                    .foregroundStyle(.gray)
+            }
+            .frame(height: height)
+    }
+
+    private var placeholderIcon: String {
         switch asset.kind {
         case .video: return "play.rectangle"
         case .image: return "photo"
+        case .audio: return "waveform"
+        }
+    }
+
+    private var headerIcon: String {
+        switch asset.kind {
+        case .video: return "play.rectangle"
+        case .image: return "photo"
+        case .audio: return "waveform.circle"
+        }
+    }
+}
+
+private struct AudioPreviewWaveform: View {
+    let duration: Double
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Canvas { context, size in
+                let bars = 30
+                let barWidth = size.width / CGFloat(bars)
+                for index in 0..<bars {
+                    let normalized = CGFloat((Double(index % 6) + 1) / 6.0)
+                    let height = size.height * (0.3 + 0.7 * normalized)
+                    let x = CGFloat(index) * barWidth
+                    let rect = CGRect(x: x, y: (size.height - height) / 2, width: barWidth * 0.6, height: height)
+                    context.fill(Path(rect), with: .color(.blue.opacity(0.6)))
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            HStack {
+                Label("Audio", systemImage: "waveform.circle")
+                Spacer()
+                if duration > 0 {
+                    Text("\(Int(duration.rounded()))s")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
         }
     }
 }
@@ -599,7 +770,7 @@ private struct MediaAssetRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .center) {
-                Label(asset.filename, systemImage: asset.kind == .video ? "play.rectangle" : "photo")
+                Label(asset.filename, systemImage: headerIcon)
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -613,7 +784,7 @@ private struct MediaAssetRow: View {
 
             HStack {
                 Button(action: attachAction) {
-                    Label(isAttached ? "Remove from Step" : "Attach to Step", systemImage: isAttached ? "link.slash" : "link")
+                    Label(attachButtonTitle, systemImage: attachButtonIcon)
                 }
                 .buttonStyle(.bordered)
                 .disabled(!canAttach)
@@ -628,6 +799,34 @@ private struct MediaAssetRow: View {
         }
         .padding()
         .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+    }
+
+    private var headerIcon: String {
+        switch asset.kind {
+        case .video: return "play.rectangle"
+        case .image: return "photo"
+        case .audio: return "speaker.wave.2.fill"
+        }
+    }
+
+    private var attachButtonTitle: String {
+        switch asset.kind {
+        case .audio:
+            return isAttached ? "Remove Audio" : "Attach Audio"
+        default:
+            return isAttached ? "Remove from Step" : "Attach to Step"
+        }
+    }
+
+    private var attachButtonIcon: String {
+        switch asset.kind {
+        case .audio:
+            return isAttached ? "speaker.slash.fill" : "speaker.wave.2.fill"
+        case .video:
+            return isAttached ? "link.slash" : "link"
+        case .image:
+            return isAttached ? "link.slash" : "link"
+        }
     }
 }
 
@@ -829,7 +1028,8 @@ private struct ReelPreviewSheet: View {
                     ForEach(steps) { step in
                         PreviewStepCard(
                             step: step,
-                            assets: assets(for: step)
+                            assets: assets(for: step),
+                            audioAssets: audioAssets(for: step)
                         )
                     }
                 }
@@ -844,11 +1044,18 @@ private struct ReelPreviewSheet: View {
             assets.first { $0.id == id }
         }
     }
+
+    private func audioAssets(for step: StepDraft) -> [MediaAsset] {
+        step.audioAssetIDs.compactMap { id in
+            assets.first { $0.id == id }
+        }
+    }
 }
 
 private struct PreviewStepCard: View {
     let step: StepDraft
     let assets: [MediaAsset]
+    let audioAssets: [MediaAsset]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -914,6 +1121,31 @@ private struct PreviewStepCard: View {
                     Label(asset.filename, systemImage: asset.kind == .video ? "play.rectangle" : "photo")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                }
+            }
+        }
+
+        if !audioAssets.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Audio overlays")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                ForEach(audioAssets, id: \.id) { asset in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label(asset.filename, systemImage: "speaker.wave.2.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        if let transcript = asset.transcript, !transcript.isEmpty, step.prefersAutoTranscript {
+                            Text(transcript)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(3)
+                        } else if step.prefersAutoTranscript {
+                            Text("Transcript pending generation")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
             }
         }

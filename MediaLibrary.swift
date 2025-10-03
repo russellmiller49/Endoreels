@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 enum MediaAssetKind: String, Codable {
     case image
     case video
+    case audio
 }
 
 enum MediaAssetSource: String, Codable {
@@ -24,8 +25,9 @@ struct MediaAsset: Identifiable {
     var trimRange: ClosedRange<Double>?
     var thumbnail: UIImage?
     var editedImage: UIImage?
+    var transcript: String?
 
-    init(id: UUID = UUID(), kind: MediaAssetKind, url: URL, filename: String, source: MediaAssetSource, createdAt: Date = .now, duration: Double? = nil, trimRange: ClosedRange<Double>? = nil, thumbnail: UIImage? = nil, editedImage: UIImage? = nil) {
+    init(id: UUID = UUID(), kind: MediaAssetKind, url: URL, filename: String, source: MediaAssetSource, createdAt: Date = .now, duration: Double? = nil, trimRange: ClosedRange<Double>? = nil, thumbnail: UIImage? = nil, editedImage: UIImage? = nil, transcript: String? = nil) {
         self.id = id
         self.kind = kind
         self.url = url
@@ -36,6 +38,7 @@ struct MediaAsset: Identifiable {
         self.trimRange = trimRange
         self.thumbnail = thumbnail
         self.editedImage = editedImage
+        self.transcript = transcript
     }
 }
 
@@ -75,6 +78,16 @@ extension MediaAsset {
                                editedImage: image)
         }
 
+        if contentType.conforms(to: .audio) {
+            let asset = AVURLAsset(url: url)
+            let durationTime = try await asset.load(.duration)
+            return MediaAsset(kind: .audio,
+                               url: url,
+                               filename: resourceValues.name ?? url.lastPathComponent,
+                               source: source,
+                               duration: CMTimeGetSeconds(durationTime))
+        }
+
         throw CreationError.unsupportedType
     }
 
@@ -100,6 +113,17 @@ extension MediaAsset {
         self.url = url
         self.thumbnail = image
         self.editedImage = image
+    }
+
+    @MainActor
+    mutating func applyTrimmedAudio(url: URL, duration: Double, range: ClosedRange<Double>) {
+        self.url = url
+        self.duration = duration
+        self.trimRange = range
+    }
+
+    mutating func updateTranscript(_ transcript: String?) {
+        self.transcript = transcript
     }
 }
 

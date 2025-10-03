@@ -2,21 +2,67 @@ import SwiftUI
 
 struct FeedView: View {
     @EnvironmentObject private var store: DemoDataStore
-    @State private var selectedSpecialty: String? = nil
+    @State private var selectedServiceLine: ServiceLine? = nil
+    @State private var selectedProcedure: String? = nil
+    @State private var keywordQuery: String = ""
     @State private var showingSettings = false
-
-    private var specialties: [String] {
-        let values = store.reels.flatMap { [$0.procedure, $0.anatomy, $0.pathology] }
-        return Array(Set(values)).sorted()
-    }
+    @State private var showingFilters = false
 
     private var filteredReels: [Reel] {
-        guard let specialty = selectedSpecialty, !specialty.isEmpty else {
-            return store.reels
+        var reels = store.reels
+
+        if let line = selectedServiceLine {
+            reels = reels.filter { $0.serviceLine == line }
         }
-        return store.reels.filter { reel in
-            reel.procedure == specialty || reel.anatomy == specialty || reel.pathology == specialty
+
+        if let procedure = selectedProcedure, !procedure.isEmpty {
+            reels = reels.filter { $0.procedure == procedure }
         }
+
+        let tokens = keywordTokens
+        if !tokens.isEmpty {
+            reels = reels.filter { reel in
+                tokens.allSatisfy { token in
+                    reel.anatomy.lowercased().contains(token) ||
+                    reel.pathology.lowercased().contains(token) ||
+                    reel.device.lowercased().contains(token)
+                }
+            }
+        }
+
+        return reels
+    }
+
+    private var keywordTokens: [String] {
+        keywordQuery
+            .lowercased()
+            .split(whereSeparator: { $0.isWhitespace || $0 == "," })
+            .map { String($0) }
+            .filter { !$0.isEmpty }
+    }
+
+    private var hasActiveFilters: Bool {
+        selectedServiceLine != nil || selectedProcedure != nil || !keywordTokens.isEmpty
+    }
+
+    private var activeFilterSummary: String? {
+        var parts: [String] = []
+        if let line = selectedServiceLine {
+            parts.append(line.displayName)
+        }
+        if let procedure = selectedProcedure, !procedure.isEmpty {
+            parts.append(procedure)
+        }
+        if !keywordTokens.isEmpty {
+            parts.append("Keywords: \(keywordTokens.joined(separator: ", "))")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " • ")
+    }
+
+    private func clearFilters() {
+        selectedServiceLine = nil
+        selectedProcedure = nil
+        keywordQuery = ""
     }
 
     var body: some View {
@@ -32,6 +78,13 @@ struct FeedView: View {
                     }
                 }
             }
+            if let summary = activeFilterSummary {
+                Section {
+                    Text(summary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .navigationTitle("EndoReels Demo")
         .toolbar {
@@ -41,19 +94,33 @@ struct FeedView: View {
                 }
             }
             ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
-                    Button("Clear Filter") { selectedSpecialty = nil }
-                    Divider()
-                    ForEach(specialties, id: \.self) { specialty in
-                        Button(specialty) { selectedSpecialty = specialty }
-                    }
+                Button {
+                    showingFilters = true
                 } label: {
-                    Label("Filter", systemImage: selectedSpecialty == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                    Label("Filters", systemImage: hasActiveFilters ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                 }
             }
         }
         .sheet(isPresented: $showingSettings) {
             DemoSetupSheet()
+        }
+        .sheet(isPresented: $showingFilters) {
+            FeedFilterSheet(
+                selectedServiceLine: $selectedServiceLine,
+                selectedProcedure: $selectedProcedure,
+                keywordQuery: $keywordQuery,
+                onClear: clearFilters
+            )
+        }
+        .onChange(of: selectedServiceLine) { _, newValue in
+            guard let newValue else {
+                selectedProcedure = nil
+                return
+            }
+            let options = newValue.defaultProcedures
+            if let current = selectedProcedure, !options.contains(current) {
+                selectedProcedure = nil
+            }
         }
         .navigationDestination(for: UUID.self) { reelID in
             if let reel = store.reels.first(where: { $0.id == reelID }) {
@@ -113,6 +180,77 @@ struct FeedView: View {
     }
 }
 
+private struct FeedFilterSheet: View {
+    @Binding var selectedServiceLine: ServiceLine?
+    @Binding var selectedProcedure: String?
+    @Binding var keywordQuery: String
+    let onClear: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    private var procedureBinding: Binding<String> {
+        Binding<String>(
+            get: { selectedProcedure ?? "" },
+            set: { newValue in
+                selectedProcedure = newValue.isEmpty ? nil : newValue
+            }
+        )
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Service Line") {
+                    Picker("Service Line", selection: $selectedServiceLine) {
+                        Text("All").tag(ServiceLine?.none)
+                        ForEach(ServiceLine.allCases) { line in
+                            Text(line.displayName).tag(ServiceLine?.some(line))
+                        }
+                    }
+                    .pickerStyle(.inline)
+                }
+
+                Section("Procedure") {
+                    if let selectedServiceLine {
+                        Picker("Procedure", selection: procedureBinding) {
+                            Text("All").tag("")
+                            ForEach(selectedServiceLine.defaultProcedures, id: \.self) { option in
+                                Text(option).tag(option)
+                            }
+                        }
+                        .pickerStyle(.inline)
+                    } else {
+                        Label("Select a service line to refine by procedure", systemImage: "info.circle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section("Keywords") {
+                    TextField("e.g. left main, ulcer", text: $keywordQuery)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                    Text("Matches anatomy, pathology, or device.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Filters")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+                ToolbarItem(placement: .destructiveAction) {
+                    Button("Clear") {
+                        onClear()
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
 struct ReelCardView: View {
     let reel: Reel
 
@@ -134,6 +272,7 @@ struct ReelCardView: View {
             }
 
             HStack(alignment: .center, spacing: 12) {
+                serviceLineBadge
                 authorBadge
                 Divider()
                     .frame(height: 32)
@@ -179,6 +318,15 @@ struct ReelCardView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private var serviceLineBadge: some View {
+        Label(reel.serviceLine.displayName, systemImage: "list.bullet.rectangle")
+            .font(.caption2)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.blue.opacity(0.08))
+            .clipShape(Capsule())
     }
 }
 

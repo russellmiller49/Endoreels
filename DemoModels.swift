@@ -2,6 +2,40 @@ import Foundation
 import Combine
 import SwiftUI
 
+enum ServiceLine: String, CaseIterable, Identifiable {
+    case pulmonary
+    case gastroenterology
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .pulmonary: return "Pulmonary"
+        case .gastroenterology: return "Gastroenterology"
+        }
+    }
+
+    var defaultProcedures: [String] {
+        switch self {
+        case .pulmonary:
+            return [
+                "Diagnostic Bronchoscopy",
+                "EBUS",
+                "Therapeutic Bronchoscopy",
+                "Pleural Procedure",
+                "Other"
+            ]
+        case .gastroenterology:
+            return [
+                "EGD",
+                "Colonoscopy",
+                "EUS",
+                "Other"
+            ]
+        }
+    }
+}
+
 enum VerificationTier: String, CaseIterable, Identifiable {
     case unverified
     case clinicianBlue
@@ -116,10 +150,19 @@ struct CMETrack {
     let summary: String
 }
 
+struct CaseComment: Identifiable {
+    let id = UUID()
+    let authorName: String
+    let authorTitle: String
+    let message: String
+    let createdAt: Date
+}
+
 struct Reel: Identifiable {
     let id = UUID()
     let title: String
     let abstract: String
+    let serviceLine: ServiceLine
     let procedure: String
     let anatomy: String
     let pathology: String
@@ -134,6 +177,7 @@ struct Reel: Identifiable {
     let cmeTrack: CMETrack?
     let engagement: EngagementSignals
     let knowledgeHighlights: [String]
+    var comments: [CaseComment]
 }
 
 struct KnowledgeCollection: Identifiable {
@@ -189,6 +233,11 @@ final class DemoDataStore: ObservableObject {
     func updateImportedAsset(_ asset: MediaAsset) {
         guard let index = importedAssets.firstIndex(where: { $0.id == asset.id }) else { return }
         importedAssets[index] = asset
+    }
+
+    func addComment(_ comment: CaseComment, to reelID: Reel.ID) {
+        guard let index = reels.firstIndex(where: { $0.id == reelID }) else { return }
+        reels[index].comments.append(comment)
     }
 
     private func seed() {
@@ -266,9 +315,25 @@ final class DemoDataStore: ObservableObject {
             summary: "Self-assessment quiz covering airway stent complications and rescue options."
         )
 
+        let airwayComments = [
+            CaseComment(
+                authorName: "Dr. Priya Mehta",
+                authorTitle: "Interventional Pulmonologist",
+                message: "Nicely showcases balloon sizing — the fluoroscopic overlay is helpful.",
+                createdAt: Date().addingTimeInterval(-60 * 45)
+            ),
+            CaseComment(
+                authorName: "Casey Reynolds, RRT",
+                authorTitle: "Respiratory Therapist",
+                message: "Would love to see post-op airway hygiene tips included in the next version!",
+                createdAt: Date().addingTimeInterval(-60 * 120)
+            )
+        ]
+
         let mainReel = Reel(
             title: "Bronchial Stent Rescue: Managing Granulation Tissue",
             abstract: "Case-based walkthrough of a bronchial stent complication with dilation strategy, pearls, and follow-up care plan.",
+            serviceLine: .pulmonary,
             procedure: "Bronchoscopy",
             anatomy: "Left Main Bronchus",
             pathology: "Granulation Tissue",
@@ -282,7 +347,8 @@ final class DemoDataStore: ObservableObject {
             phiFindings: phiFindings,
             cmeTrack: cmeTrack,
             engagement: engagement,
-            knowledgeHighlights: ["Use balloon dilation to rescue obstructed stents", "Always verify mucosal perfusion post-dilation", "Schedule early follow-up when stent granulation occurs"]
+            knowledgeHighlights: ["Use balloon dilation to rescue obstructed stents", "Always verify mucosal perfusion post-dilation", "Schedule early follow-up when stent granulation occurs"],
+            comments: airwayComments
         )
 
         let secondAuthor = UserProfile(
@@ -298,9 +364,19 @@ final class DemoDataStore: ObservableObject {
             bio: "Advanced endoscopist focusing on complex polypectomy and early GI neoplasia."
         )
 
+        let giComments = [
+            CaseComment(
+                authorName: "Dr. Mateo Griffin",
+                authorTitle: "Advanced Endoscopist",
+                message: "Consider adding a clip showing the retroflex view after closure for learners.",
+                createdAt: Date().addingTimeInterval(-60 * 15)
+            )
+        ]
+
         let giReel = Reel(
             title: "Cold EMR of Large Right Colon Lesion",
             abstract: "Technique breakdown for a 35mm laterally spreading tumor using cold EMR with traction clips.",
+            serviceLine: .gastroenterology,
             procedure: "Endoscopic Mucosal Resection",
             anatomy: "Ascending Colon",
             pathology: "LST-G Tumor",
@@ -360,7 +436,8 @@ final class DemoDataStore: ObservableObject {
                 endorsements: 2,
                 reactions: ["Insightful": 18, "Excellent Teaching": 24]
             ),
-            knowledgeHighlights: ["Cold EMR reduces perforation risk in proximal colon", "Traction clips aid visualization", "Assess for residual tissue carefully"]
+            knowledgeHighlights: ["Cold EMR reduces perforation risk in proximal colon", "Traction clips aid visualization", "Assess for residual tissue carefully"],
+            comments: giComments
         )
 
         reels = [mainReel, giReel]

@@ -2,7 +2,12 @@ import SwiftUI
 
 struct ReelDetailView: View {
     let reel: Reel
+    @EnvironmentObject private var store: DemoDataStore
     @State private var selectedReaction: String? = nil
+    @State private var commentName: String = ""
+    @State private var commentRole: String = ""
+    @State private var commentBody: String = ""
+    @FocusState private var isCommentFocused: Bool
 
     var body: some View {
         ScrollView {
@@ -10,23 +15,24 @@ struct ReelDetailView: View {
                 header
                 engagement
                 steps
-                if !reel.knowledgeHighlights.isEmpty {
+                if !currentReel.knowledgeHighlights.isEmpty {
                     knowledgeHighlights
                 }
                 phiChecklist
-                if let track = reel.cmeTrack {
+                commentsSection
+                if let track = currentReel.cmeTrack {
                     cmeCard(for: track)
                 }
             }
             .padding(.horizontal)
             .padding(.bottom, 32)
         }
-        .navigationTitle(reel.title)
+        .navigationTitle(currentReel.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
-                    ForEach(reel.engagement.reactions.keys.sorted(), id: \.self) { reaction in
+                    ForEach(currentReel.engagement.reactions.keys.sorted(), id: \.self) { reaction in
                         Button(reaction) { selectedReaction = reaction }
                     }
                 } label: {
@@ -39,13 +45,17 @@ struct ReelDetailView: View {
         }
     }
 
+    private var currentReel: Reel {
+        store.reels.first(where: { $0.id == reel.id }) ?? reel
+    }
+
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(reel.title)
+            Text(currentReel.title)
                 .font(.title.bold())
                 .multilineTextAlignment(.leading)
 
-            Text(reel.abstract)
+            Text(currentReel.abstract)
                 .font(.body)
                 .foregroundStyle(.secondary)
 
@@ -56,18 +66,18 @@ struct ReelDetailView: View {
                     .fill(.blue.opacity(0.15))
                     .frame(width: 44, height: 44)
                     .overlay {
-                        Text(initials(for: reel.author.name))
+                        Text(initials(for: currentReel.author.name))
                             .font(.headline)
                             .foregroundStyle(.blue)
                     }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(reel.author.name)
+                    Text(currentReel.author.name)
                         .font(.headline)
-                    Text("\(reel.author.role) • \(reel.author.institution)")
+                    Text("\(currentReel.author.role) • \(currentReel.author.institution)")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Text(reel.author.bio)
+                    Text(currentReel.author.bio)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(3)
@@ -82,10 +92,10 @@ struct ReelDetailView: View {
 
     private var specRow: some View {
         HStack(spacing: 16) {
-            Label(reel.procedure, systemImage: "scalpel")
-            Label(reel.anatomy, systemImage: "lungs.fill")
-            Label(reel.pathology, systemImage: "waveform.path.ecg")
-            Label(reel.device, systemImage: "stethoscope")
+            Label(currentReel.procedure, systemImage: "scalpel")
+            Label(currentReel.anatomy, systemImage: "lungs.fill")
+            Label(currentReel.pathology, systemImage: "waveform.path.ecg")
+            Label(currentReel.device, systemImage: "stethoscope")
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -95,21 +105,21 @@ struct ReelDetailView: View {
 
     private var badgeLabel: some View {
         VStack(alignment: .trailing, spacing: 4) {
-            Text(reel.author.verification.tier.displayName)
+            Text(currentReel.author.verification.tier.displayName)
                 .font(.caption2.bold())
                 .padding(.vertical, 4)
                 .padding(.horizontal, 8)
                 .background(badgeColor.opacity(0.15))
                 .foregroundStyle(badgeColor)
                 .clipShape(Capsule())
-            Text("Verified \(relativeDate(from: reel.author.verification.issuedAt))")
+            Text("Verified \(relativeDate(from: currentReel.author.verification.issuedAt))")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
     }
 
     private var badgeColor: Color {
-        switch reel.author.verification.tier {
+        switch currentReel.author.verification.tier {
         case .unverified:
             return .gray
         case .clinicianBlue:
@@ -125,7 +135,7 @@ struct ReelDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Engagement Signals")
                 .font(.title3.bold())
-            EngagementRow(engagement: reel.engagement)
+            EngagementRow(engagement: currentReel.engagement)
             HStack(spacing: 12) {
                 Button { selectedReaction = "Insightful" } label: {
                     Label("React", systemImage: "hands.clap.fill")
@@ -150,7 +160,7 @@ struct ReelDetailView: View {
             Text("Storyboard Steps")
                 .font(.title3.bold())
 
-            ForEach(reel.steps) { step in
+            ForEach(currentReel.steps) { step in
                 StepCard(step: step)
             }
         }
@@ -160,7 +170,7 @@ struct ReelDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Knowledge Highlights")
                 .font(.title3.bold())
-            ForEach(reel.knowledgeHighlights, id: \.self) { highlight in
+            ForEach(currentReel.knowledgeHighlights, id: \.self) { highlight in
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "lightbulb")
                         .foregroundStyle(.yellow)
@@ -175,11 +185,11 @@ struct ReelDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("De-identification Checks")
                 .font(.title3.bold())
-            if reel.phiFindings.isEmpty {
+            if currentReel.phiFindings.isEmpty {
                 Label("No PHI findings detected", systemImage: "checkmark.shield")
                     .foregroundStyle(.green)
             } else {
-                ForEach(reel.phiFindings) { finding in
+                ForEach(currentReel.phiFindings) { finding in
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: finding.resolved ? "checkmark.shield" : "exclamationmark.shield")
                             .foregroundStyle(finding.resolved ? .green : .orange)
@@ -194,6 +204,58 @@ struct ReelDetailView: View {
                     }
                 }
             }
+        }
+    }
+
+    private var commentsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Community Comments")
+                .font(.title3.bold())
+
+            if currentReel.comments.isEmpty {
+                Label("No comments yet. Be the first to share insights.", systemImage: "text.bubble")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(currentReel.comments) { comment in
+                        CommentCard(comment: comment)
+                    }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Add Your Voice")
+                    .font(.headline)
+                TextField("Name (optional)", text: $commentName)
+                    .textFieldStyle(.roundedBorder)
+                TextField("Role / Title (optional)", text: $commentRole)
+                    .textFieldStyle(.roundedBorder)
+                TextField("Share a pearl, question, or feedback", text: $commentBody, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(minHeight: 80)
+                    .focused($isCommentFocused)
+
+                HStack {
+                    Button("Clear", role: .cancel) {
+                        resetCommentFields()
+                    }
+                    .disabled(commentBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && commentName.isEmpty && commentRole.isEmpty)
+
+                    Spacer()
+
+                    Button {
+                        submitComment()
+                    } label: {
+                        Label("Post Comment", systemImage: "paperplane.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(commentBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .font(.caption)
+            }
+            .padding()
+            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
         }
     }
 
@@ -234,6 +296,80 @@ struct ReelDetailView: View {
             .prefix(2)
             .map(String.init)
             .joined()
+    }
+
+    private func relativeDate(from date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: .now)
+    }
+
+    private func submitComment() {
+        let trimmed = commentBody.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let name = commentName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let role = commentRole.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let comment = CaseComment(
+            authorName: name.isEmpty ? "Guest Clinician" : name,
+            authorTitle: role.isEmpty ? "Viewer" : role,
+            message: trimmed,
+            createdAt: Date()
+        )
+
+        store.addComment(comment, to: currentReel.id)
+        resetCommentFields()
+        isCommentFocused = false
+    }
+
+    private func resetCommentFields() {
+        commentName = ""
+        commentRole = ""
+        commentBody = ""
+    }
+}
+
+private struct CommentCard: View {
+    let comment: CaseComment
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top) {
+                Circle()
+                    .fill(Color.blue.opacity(0.1))
+                    .frame(width: 36, height: 36)
+                    .overlay {
+                        Text(initials(for: comment.authorName))
+                            .font(.caption.bold())
+                            .foregroundStyle(.blue)
+                    }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(comment.authorName)
+                        .font(.subheadline.weight(.semibold))
+                    Text(comment.authorTitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(relativeDate(from: comment.createdAt))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(comment.message)
+                .font(.body)
+
+            Divider()
+        }
+    }
+
+    private func initials(for name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "?" }
+        let components = trimmed.split(separator: " ")
+        let initials = components.prefix(2).compactMap { $0.first }.map { String($0) }
+        return initials.joined().uppercased()
     }
 
     private func relativeDate(from date: Date) -> String {
@@ -312,11 +448,13 @@ struct AnnotationChips: View {
 }
 
 #Preview {
-    NavigationStack {
-        if let reel = DemoDataStore().reels.first {
+    let store = DemoDataStore()
+    return NavigationStack {
+        if let reel = store.reels.first {
             ReelDetailView(reel: reel)
         } else {
             Text("No sample data")
         }
     }
+    .environmentObject(store)
 }

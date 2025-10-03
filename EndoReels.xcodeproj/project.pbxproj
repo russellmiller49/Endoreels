@@ -7,13 +7,14 @@
 	objects = {
 
 /* Begin PBXFileReference section */
+		7087847F2E8F4D1800468B14 /* EndoReels.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = EndoReels.xcodeproj; sourceTree = "<group>"; };
 		709D554C2E8ECBEE002D21B9 /* EndoReels.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EndoReels.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		709D554E2E8ECBEE002D21B9 /* EndoReels */ = {
+		709D554E2E8ECBEE002D21B9 /* . */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = EndoReels;
+			path = .;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -29,10 +30,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		708784902E8F4D1800468B14 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		709D55432E8ECBEE002D21B9 = {
 			isa = PBXGroup;
 			children = (
-				709D554E2E8ECBEE002D21B9 /* EndoReels */,
+				709D554E2E8ECBEE002D21B9 /* . */,
 				709D554D2E8ECBEE002D21B9 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -61,7 +67,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				709D554E2E8ECBEE002D21B9 /* EndoReels */,
+				709D554E2E8ECBEE002D21B9 /* . */,
 			);
 			name = EndoReels;
 			packageProductDependencies = (
@@ -97,6 +103,12 @@
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 709D554D2E8ECBEE002D21B9 /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 708784902E8F4D1800468B14 /* Products */;
+					ProjectRef = 7087847F2E8F4D1800468B14 /* EndoReels.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				709D554B2E8ECBEE002D21B9 /* EndoReels */,

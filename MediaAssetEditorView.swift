@@ -19,10 +19,13 @@ struct MediaAssetEditorView: View {
                         .font(.title3.bold())
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                    if asset.kind == .video {
+                    switch asset.kind {
+                    case .video:
                         VideoEditorSection(asset: $asset, isExporting: $isExporting, exportMessage: $exportMessage, exportError: $exportError)
-                    } else {
+                    case .image:
                         ImageEditorSection(asset: $asset, exportMessage: $exportMessage, exportError: $exportError)
+                    case .audio:
+                        AudioEditorSection(asset: $asset, exportMessage: $exportMessage, exportError: $exportError)
                     }
                 }
                 .padding()
@@ -114,6 +117,258 @@ private struct ImageEditorSection: View {
             exportMessage = "Image adjustments saved."
         } catch {
             exportError = error.localizedDescription
+        }
+    }
+}
+
+private struct AudioEditorSection: View {
+    @Binding var asset: MediaAsset
+    @Binding var exportMessage: String?
+    @Binding var exportError: String?
+
+    @State private var player: AVAudioPlayer?
+    @State private var isPlaying = false
+    @State private var startTime: Double = 0
+    @State private var endTime: Double = 0
+    @State private var volume: Double = 1.0
+    @State private var isGeneratingTranscript = false
+
+    private var duration: Double { asset.duration ?? player?.duration ?? 0 }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            audioPreview
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Trim Range")
+                    .font(.subheadline.weight(.semibold))
+
+                Slider(value: Binding(
+                    get: { startTime },
+                    set: { newValue in
+                        startTime = min(newValue, endTime - 0.25)
+                        player?.currentTime = startTime
+                    }
+                ), in: 0...max(endTime - 0.25, 0))
+
+                Slider(value: Binding(
+                    get: { endTime },
+                    set: { newValue in
+                        endTime = max(newValue, startTime + 0.25)
+                    }
+                ), in: (startTime + 0.25)...max(duration, startTime + 0.25))
+
+                HStack {
+                    Text("Start: \(startTime, specifier: "%.1f")s")
+                    Spacer()
+                    Text("End: \(endTime, specifier: "%.1f")s")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Audio Enhancements")
+                    .font(.subheadline.weight(.semibold))
+                LabeledSlider(title: "Volume", value: $volume, range: 0...1.5)
+                    .onChange(of: volume) { _, newValue in
+                        player?.volume = Float(newValue)
+                    }
+            }
+
+            HStack(spacing: 12) {
+                Button(action: togglePlay) {
+                    Label(isPlaying ? "Pause" : "Play", systemImage: isPlaying ? "pause.fill" : "play.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+
+                Button {
+                    Task { await exportTrimmedAudio() }
+                } label: {
+                    Label("Trim & Save", systemImage: "scissors")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+            }
+
+            Button {
+                Task { await generateTranscript() }
+            } label: {
+                if isGeneratingTranscript {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                } else {
+                    Label("Convert Audio to Text", systemImage: "text.alignleft")
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.blue)
+            .disabled(isGeneratingTranscript)
+
+            if let transcript = asset.transcript, !transcript.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Transcript Preview")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(transcript)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .task { configurePlayerIfNeeded() }
+    }
+
+    private var audioPreview: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Canvas { context, size in
+                let bars = 32
+                let barWidth = size.width / CGFloat(bars)
+                for index in 0..<bars {
+                    let factor = CGFloat(Double(index % 7 + 1) / 7.0)
+                    let height = size.height * (0.25 + factor * 0.6)
+                    let x = CGFloat(index) * barWidth
+                    let rect = CGRect(x: x, y: (size.height - height) / 2, width: barWidth * 0.55, height: height)
+                    context.fill(Path(rect), with: .color(.blue.opacity(0.6)))
+                }
+            }
+            .frame(height: 120)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+
+            HStack {
+                Label(asset.filename, systemImage: "waveform")
+                Spacer()
+                Text("\(Int(duration.rounded()))s")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    private func configurePlayerIfNeeded() {
+        guard player == nil else { return }
+        do {
+            let audioPlayer = try AVAudioPlayer(contentsOf: asset.url)
+            audioPlayer.prepareToPlay()
+            audioPlayer.volume = Float(volume)
+            player = audioPlayer
+            startTime = asset.trimRange?.lowerBound ?? 0
+            endTime = asset.trimRange?.upperBound ?? audioPlayer.duration
+            if endTime <= startTime {
+                endTime = max(audioPlayer.duration, startTime + 0.25)
+            }
+        } catch {
+            exportError = error.localizedDescription
+        }
+    }
+
+    private func togglePlay() {
+        guard let player else { return }
+        if isPlaying {
+            player.pause()
+            isPlaying = false
+        } else {
+            player.currentTime = startTime
+            player.play()
+            isPlaying = true
+        }
+    }
+
+    private func exportTrimmedAudio() async {
+        guard duration > 0 else {
+            exportError = "Unable to determine audio duration."
+            return
+        }
+
+        do {
+            let outputURL = try await trimAudio(at: asset.url, start: startTime, end: endTime)
+            let newDuration = endTime - startTime
+            await MainActor.run {
+                asset.applyTrimmedAudio(url: outputURL, duration: newDuration, range: startTime...endTime)
+                exportMessage = "Trimmed audio saved."
+                configurePlayerReset()
+            }
+        } catch {
+            await MainActor.run { exportError = error.localizedDescription }
+        }
+    }
+
+    private func configurePlayerReset() {
+        player?.stop()
+        player = nil
+        isPlaying = false
+        configurePlayerIfNeeded()
+    }
+
+    private func trimAudio(at url: URL, start: Double, end: Double) async throws -> URL {
+        let asset = AVURLAsset(url: url)
+        let timeRange = CMTimeRange(start: CMTime(seconds: start, preferredTimescale: 600),
+                                    end: CMTime(seconds: end, preferredTimescale: 600))
+
+        let outputDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("EndoReelsMedia", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: outputDirectory.path) {
+            try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+        }
+        let outputURL = outputDirectory.appendingPathComponent("\(UUID().uuidString).m4a")
+
+        if FileManager.default.fileExists(atPath: outputURL.path) {
+            try FileManager.default.removeItem(at: outputURL)
+        }
+
+        if #available(iOS 18, *) {
+            guard let exporter = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+                throw NSError(domain: "EndoReels", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unable to create audio export session."])
+            }
+            exporter.timeRange = timeRange
+            exporter.outputURL = outputURL
+            exporter.outputFileType = .m4a
+            try await exporter.export(to: outputURL, as: .m4a)
+            return outputURL
+        } else {
+            guard let exporter = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+                throw NSError(domain: "EndoReels", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unable to create audio export session."])
+            }
+            exporter.outputURL = outputURL
+            exporter.outputFileType = .m4a
+            exporter.timeRange = timeRange
+
+            let boxed = ExportSessionBox(exporter: exporter)
+            return try await withCheckedThrowingContinuation { continuation in
+                boxed.exporter.exportAsynchronously {
+                    switch boxed.exporter.status {
+                    case .completed:
+                        continuation.resume(returning: outputURL)
+                    case .failed, .cancelled:
+                        let error = boxed.exporter.error ?? NSError(domain: "EndoReels", code: -2, userInfo: [NSLocalizedDescriptionKey: "Audio export failed."])
+                        continuation.resume(throwing: error)
+                    default:
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    private func generateTranscript() async {
+        await MainActor.run { isGeneratingTranscript = true }
+        do {
+            try await Task.sleep(nanoseconds: 1_000_000_000) // simulate processing delay
+            await MainActor.run {
+                let formatter = DateFormatter()
+                formatter.dateStyle = .short
+                formatter.timeStyle = .short
+                asset.updateTranscript("AI transcript generated \(formatter.string(from: .now))\n• Key clinical narration captured for documentation.")
+                exportMessage = "Transcript generated."
+                isGeneratingTranscript = false
+            }
+        } catch {
+            await MainActor.run {
+                exportError = error.localizedDescription
+                isGeneratingTranscript = false
+            }
         }
     }
 }
