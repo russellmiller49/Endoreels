@@ -25,6 +25,8 @@ struct CreatorView: View {
     @State private var showCreditsHistory = false
     @State private var stepDrafts: [StepDraft] = StepDraft.sample
     @State private var selectedStepID: UUID?
+    @State private var editingStepDraft: StepDraft?
+    @State private var stepPendingDeletion: StepDraft?
     @State private var draftNotes: String = """
     Focus on demonstrating balloon dilation, instrument handling tips, and immediate airway reassessment.
     """.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -85,7 +87,7 @@ struct CreatorView: View {
                 assets: store.importedAssets
             )
         }
-        .onChange(of: serviceLine) { _, newValue in
+        .onChange(of: serviceLine, initial: false) { oldValue, newValue in
             let options = newValue.defaultProcedures
             if !options.contains(procedure) {
                 procedure = options.first ?? ""
@@ -114,6 +116,28 @@ struct CreatorView: View {
             } else {
                 Text("Asset unavailable")
             }
+        }
+        .sheet(item: $editingStepDraft) { draft in
+            NavigationStack {
+                StepEditorSheet(
+                    step: draft,
+                    availableAssets: store.importedAssets,
+                    onSave: { updated in
+                        applyUpdatedStep(updated)
+                        editingStepDraft = nil
+                    },
+                    onCancel: { editingStepDraft = nil }
+                )
+            }
+        }
+        .confirmationDialog("Remove Step?", isPresented: Binding(
+            get: { stepPendingDeletion != nil },
+            set: { newValue in if !newValue { stepPendingDeletion = nil } }
+        ), presenting: stepPendingDeletion) { step in
+            Button("Delete", role: .destructive) { deleteStep(step.id) }
+            Button("Cancel", role: .cancel) {}
+        } message: { step in
+            Text("Deleting Step \(step.order) will remove its attachments.")
         }
     }
 
@@ -162,6 +186,8 @@ struct CreatorView: View {
                     let linkedAudioAssets = step.audioAssetIDs.compactMap { id in
                         store.importedAssets.first(where: { $0.id == id })
                     }
+                    let isFirst = step.id == stepDrafts.first?.id
+                    let isLast = step.id == stepDrafts.last?.id
                     TimelineStepCard(
                         step: step,
                         isSelected: step.id == selectedStepID,
@@ -169,7 +195,14 @@ struct CreatorView: View {
                         audioAssets: linkedAudioAssets,
                         onToggleTranscript: {
                             toggleTranscriptPreference(for: step.id)
-                        }
+                        },
+                        onEdit: { editingStepDraft = step },
+                        onDuplicate: { duplicateStep(step.id) },
+                        onMoveUp: { moveStep(step.id, direction: -1) },
+                        onMoveDown: { moveStep(step.id, direction: 1) },
+                        onDelete: { stepPendingDeletion = step },
+                        isFirst: isFirst,
+                        isLast: isLast
                     )
                         .onTapGesture { selectedStepID = step.id }
                 }
@@ -193,7 +226,7 @@ struct CreatorView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-                .onChange(of: photoSelections) { _, newValue in
+                .onChange(of: photoSelections, initial: false) { oldValue, newValue in
                     Task { await handlePhotoSelections(newValue) }
                 }
 
@@ -345,6 +378,47 @@ struct CreatorView: View {
             prefersAutoTranscript: false
         )
         stepDrafts.append(step)
+        selectedStepID = step.id
+    }
+
+    private func applyUpdatedStep(_ updated: StepDraft) {
+        guard let index = stepDrafts.firstIndex(where: { $0.id == updated.id }) else { return }
+        stepDrafts[index] = updated
+        renumberSteps()
+    }
+
+    private func duplicateStep(_ id: UUID) {
+        guard let source = stepDrafts.first(where: { $0.id == id }) else { return }
+        guard let index = stepDrafts.firstIndex(where: { $0.id == id }) else { return }
+        let newOrder = min(stepDrafts.count + 1, source.order + 1)
+        let clone = source.duplicated(withOrder: newOrder)
+        stepDrafts.insert(clone, at: index + 1)
+        selectedStepID = clone.id
+        renumberSteps()
+    }
+
+    private func deleteStep(_ id: UUID) {
+        stepDrafts.removeAll { $0.id == id }
+        if selectedStepID == id {
+            selectedStepID = stepDrafts.first?.id
+        }
+        renumberSteps()
+    }
+
+    private func moveStep(_ id: UUID, direction: Int) {
+        guard let index = stepDrafts.firstIndex(where: { $0.id == id }) else { return }
+        let target = index + direction
+        guard target >= 0 && target < stepDrafts.count else { return }
+        let step = stepDrafts.remove(at: index)
+        stepDrafts.insert(step, at: target)
+        selectedStepID = step.id
+        renumberSteps()
+    }
+
+    private func renumberSteps() {
+        for idx in stepDrafts.indices {
+            stepDrafts[idx].order = idx + 1
+        }
     }
 
     private func header(_ title: String) -> some View {
@@ -524,7 +598,7 @@ private struct StepDraft: Identifiable {
     }
 
     let id = UUID()
-    let order: Int
+    var order: Int
     var title: String
     var focus: String
     var captureType: CaptureType
@@ -532,6 +606,19 @@ private struct StepDraft: Identifiable {
     var mediaAssetIDs: [MediaAsset.ID]
     var audioAssetIDs: [MediaAsset.ID]
     var prefersAutoTranscript: Bool
+
+    func duplicated(withOrder order: Int) -> StepDraft {
+        StepDraft(
+            order: order,
+            title: title + " Copy",
+            focus: focus,
+            captureType: captureType,
+            overlays: overlays,
+            mediaAssetIDs: mediaAssetIDs,
+            audioAssetIDs: audioAssetIDs,
+            prefersAutoTranscript: prefersAutoTranscript
+        )
+    }
 
     static let sample: [StepDraft] = [
         StepDraft(order: 1, title: "Airway Inspection", focus: "Identify granulation tissue and stent margins.", captureType: .video, overlays: ["Arrow on obstruction", "Text: keep suction ready"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false),
@@ -546,6 +633,13 @@ private struct TimelineStepCard: View {
     let linkedAssets: [MediaAsset]
     let audioAssets: [MediaAsset]
     let onToggleTranscript: () -> Void
+    let onEdit: () -> Void
+    let onDuplicate: () -> Void
+    let onMoveUp: () -> Void
+    let onMoveDown: () -> Void
+    let onDelete: () -> Void
+    let isFirst: Bool
+    let isLast: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -598,16 +692,19 @@ private struct TimelineStepCard: View {
             }
             Divider()
             HStack {
-                Button {
-                    // placeholder for edit
-                } label: {
-                    Label("Edit", systemImage: "slider.horizontal.3")
+                Button(action: onEdit) {
+                    Label("Edit Details", systemImage: "slider.horizontal.3")
                 }
                 Spacer()
-                Button(role: .destructive) {
-                    // placeholder for delete
+                Menu {
+                    Button("Duplicate Step", action: onDuplicate)
+                    Button("Move Up", action: onMoveUp)
+                        .disabled(isFirst)
+                    Button("Move Down", action: onMoveDown)
+                        .disabled(isLast)
+                    Button("Delete Step", role: .destructive, action: onDelete)
                 } label: {
-                    Image(systemName: "trash")
+                    Image(systemName: "ellipsis.circle")
                 }
             }
             .font(.caption)
@@ -619,6 +716,141 @@ private struct TimelineStepCard: View {
                 .stroke(isSelected ? Color.blue : Color.gray.opacity(0.15), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+private struct StepEditorSheet: View {
+    @State private var workingStep: StepDraft
+    @State private var newOverlayText: String = ""
+    let availableAssets: [MediaAsset]
+    let onSave: (StepDraft) -> Void
+    let onCancel: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    init(step: StepDraft, availableAssets: [MediaAsset], onSave: @escaping (StepDraft) -> Void, onCancel: @escaping () -> Void) {
+        _workingStep = State(initialValue: step)
+        self.availableAssets = availableAssets
+        self.onSave = onSave
+        self.onCancel = onCancel
+    }
+
+    var body: some View {
+        Form {
+            Section("Details") {
+                TextField("Title", text: $workingStep.title)
+                TextField("Focus", text: $workingStep.focus, axis: .vertical)
+                    .lineLimit(3, reservesSpace: true)
+                Picker("Capture Type", selection: $workingStep.captureType) {
+                    ForEach(StepDraft.CaptureType.allCases) { type in
+                        Label(type.label, systemImage: type.systemImage)
+                            .tag(type)
+                    }
+                }
+            }
+
+            Section("Teaching Overlays") {
+                if workingStep.overlays.isEmpty {
+                    Text("No overlays yet. Use the field below to add annotations.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(Array(workingStep.overlays.enumerated()), id: \.offset) { index, overlay in
+                        HStack {
+                            Text(overlay)
+                            Spacer()
+                            Button(role: .destructive) {
+                                workingStep.overlays.remove(at: index)
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
+                }
+
+                HStack {
+                    TextField("Add overlay note", text: $newOverlayText)
+                    Button("Add") {
+                        let trimmed = newOverlayText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !trimmed.isEmpty else { return }
+                        workingStep.overlays.append(trimmed)
+                        newOverlayText = ""
+                    }
+                    .disabled(newOverlayText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+
+            if !visualAttachments.isEmpty {
+                Section("Visual Attachments") {
+                    ForEach(visualAttachments, id: \.id) { asset in
+                        AttachmentRow(asset: asset) {
+                            workingStep.mediaAssetIDs.removeAll { $0 == asset.id }
+                        }
+                    }
+                }
+            }
+
+            if !audioAttachments.isEmpty {
+                Section("Audio Overlays") {
+                    Toggle("Generate transcript automatically", isOn: $workingStep.prefersAutoTranscript)
+                    ForEach(audioAttachments, id: \.id) { asset in
+                        AttachmentRow(asset: asset) {
+                            workingStep.audioAssetIDs.removeAll { $0 == asset.id }
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("Edit Step \(workingStep.order)")
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") {
+                    onCancel()
+                    dismiss()
+                }
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Save") {
+                    onSave(workingStep)
+                    dismiss()
+                }
+            }
+        }
+    }
+
+    private var visualAttachments: [MediaAsset] {
+        workingStep.mediaAssetIDs.compactMap { id in
+            availableAssets.first(where: { $0.id == id })
+        }
+    }
+
+    private var audioAttachments: [MediaAsset] {
+        workingStep.audioAssetIDs.compactMap { id in
+            availableAssets.first(where: { $0.id == id })
+        }
+    }
+
+    private struct AttachmentRow: View {
+        let asset: MediaAsset
+        let onRemove: () -> Void
+
+        var body: some View {
+            HStack {
+                Label(asset.filename, systemImage: icon)
+                Spacer()
+                Button("Remove", role: .destructive, action: onRemove)
+                    .buttonStyle(.bordered)
+                    .font(.caption)
+            }
+        }
+
+        private var icon: String {
+            switch asset.kind {
+            case .video: return "play.rectangle"
+            case .image: return "photo"
+            case .audio: return "speaker.wave.2.fill"
+            }
+        }
     }
 }
 

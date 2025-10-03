@@ -18,7 +18,7 @@ struct APIClient {
     var baseURL: URL
     var session: URLSession = .shared
 
-    init(baseURL: URL = URL(string: "https://api.example.com")!) {
+    init(baseURL: URL = AppConfig.apiBaseURL) {
         self.baseURL = baseURL
     }
 
@@ -58,7 +58,7 @@ enum APIError: Error {
 #if DEBUG
 enum DemoAPI {
     static func stubbedResponse<R: APIRequest>(for request: R) -> R.Response? {
-        if let creditsRequest = request as? CreditsRequest {
+        if request is CreditsRequest {
             return CreditsResponse.demo as? R.Response
         }
         return nil
@@ -78,3 +78,4 @@ struct CreditsResponse: Codable {
 
     static let demo = CreditsResponse(balance: 3, transactions: CreditTransaction.demoTransactions)
 }
+

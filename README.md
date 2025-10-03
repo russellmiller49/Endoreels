@@ -124,6 +124,7 @@ EndoReels/
 - The project uses modern SwiftUI patterns and Combine framework
 - Demo data is included for testing and development
 - All files are structured at the repository root for optimal accessibility
+- Runtime configuration is provided through environment variables. Copy `.env.example` to `.env` (not committed) and fill in your Supabase and Railway secrets before running features that rely on the network layer.
 
 ---
 
@@ -213,4 +214,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🏥 Medical Disclaimer
 
 EndoReels is intended for educational purposes only. All clinical decisions must be made in accordance with standard medical practice and institutional guidelines. Users are responsible for ensuring compliance with applicable regulations and obtaining necessary approvals before sharing protected health information.
-

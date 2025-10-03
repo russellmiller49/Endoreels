@@ -7,9 +7,18 @@ final class AppState: ObservableObject {
     @Published var currentUser: CurrentUser
     @Published var creditsStore: CreditsStore
 
-    init(currentUser: CurrentUser = CurrentUser.demoUser(), creditsStore: CreditsStore = CreditsStore()) {
-        self.currentUser = currentUser
-        self.creditsStore = creditsStore
+    init(currentUser: CurrentUser? = nil, creditsStore: CreditsStore? = nil) {
+        if let currentUser {
+            self.currentUser = currentUser
+        } else {
+            self.currentUser = CurrentUser.demoUser()
+        }
+
+        if let creditsStore {
+            self.creditsStore = creditsStore
+        } else {
+            self.creditsStore = CreditsStore()
+        }
     }
 }
 

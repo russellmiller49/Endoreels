@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 @MainActor
 final class CreditsStore: ObservableObject {
@@ -9,12 +10,16 @@ final class CreditsStore: ObservableObject {
 
     private let apiClient: APIClient
 
-    init(apiClient: APIClient = APIClient()) {
+    init(apiClient: APIClient) {
         self.apiClient = apiClient
         #if DEBUG
         self.balance = CreditBalance(remaining: CreditsResponse.demo.balance)
         self.transactions = CreditsResponse.demo.transactions
         #endif
+    }
+
+    convenience init() {
+        self.init(apiClient: APIClient())
     }
 
     func refresh() async {
@@ -55,3 +60,4 @@ final class CreditsStore: ObservableObject {
         balance.remaining += amount
     }
 }
+
