@@ -10,15 +10,18 @@ final class CreditsStore: ObservableObject {
 
     private let apiClient: APIClient
 
-    init(apiClient: APIClient = APIClient()) {
+    // Designated initializer for dependency injection
+    init(apiClient: APIClient) {
         self.apiClient = apiClient
+        #if DEBUG
+        self.balance = CreditBalance(remaining: CreditsResponse.demo.balance)
+        self.transactions = CreditsResponse.demo.transactions
+        #endif
     }
 
-    func loadDemoData() {
-        #if DEBUG
-        balance = CreditBalance(remaining: CreditsResponse.demo.balance)
-        transactions = CreditsResponse.demo.transactions
-        #endif
+    // Convenience initializer that safely constructs APIClient on the main actor
+    convenience init() {
+        self.init(apiClient: APIClient())
     }
 
     func refresh() async {

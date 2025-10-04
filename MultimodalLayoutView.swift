@@ -29,8 +29,8 @@ enum MultimodalLayout: String, CaseIterable, Identifiable {
 
 struct MultimodalAssetConfig: Identifiable {
     let id = UUID()
-    var primaryAsset: MediaAsset?
-    var secondaryAsset: MediaAsset?
+    var primaryAsset: ImportedMediaAsset?
+    var secondaryAsset: ImportedMediaAsset?
     var layout: MultimodalLayout
     var syncPlayback: Bool
     var pipPosition: PiPPosition
@@ -75,7 +75,7 @@ struct MultimodalAssetConfig: Identifiable {
 
 struct MultimodalLayoutEditor: View {
     @Binding var config: MultimodalAssetConfig
-    let availableAssets: [MediaAsset]
+    let availableAssets: [ImportedMediaAsset]
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -92,17 +92,17 @@ struct MultimodalLayoutEditor: View {
 
                 Section("Media Assets") {
                     Picker("Primary Asset", selection: $config.primaryAsset) {
-                        Text("None").tag(nil as MediaAsset?)
+                        Text("None").tag(nil as ImportedMediaAsset?)
                         ForEach(availableAssets) { asset in
-                            Text(asset.filename).tag(asset as MediaAsset?)
+                            Text(asset.filename).tag(asset as ImportedMediaAsset?)
                         }
                     }
 
                     if config.layout != .single {
                         Picker("Secondary Asset", selection: $config.secondaryAsset) {
-                            Text("None").tag(nil as MediaAsset?)
+                            Text("None").tag(nil as ImportedMediaAsset?)
                             ForEach(availableAssets) { asset in
-                                Text(asset.filename).tag(asset as MediaAsset?)
+                                Text(asset.filename).tag(asset as ImportedMediaAsset?)
                             }
                         }
                     }
@@ -263,7 +263,7 @@ private struct MultimodalLayoutPreview: View {
         }
     }
 
-    private func assetPreview(_ asset: MediaAsset?, label: String) -> some View {
+    private func assetPreview(_ asset: ImportedMediaAsset?, label: String) -> some View {
         Group {
             if let asset = asset, let thumbnail = asset.thumbnail {
                 Image(uiImage: thumbnail)

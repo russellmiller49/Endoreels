@@ -219,6 +219,11 @@ struct ReviewCollaborationView: View {
                 })
             }
             .onAppear { setupPlayer() }
+            .onDisappear {
+                player?.pause()
+                player?.replaceCurrentItem(with: nil)
+                player = nil
+            }
         }
     }
 
@@ -510,11 +515,25 @@ struct ReviewCollaborationView: View {
 
     private func setupPlayer() {
         guard let videoURL = videoURL else { return }
+        
+        // Validate file exists before creating player
+        guard FileManager.default.fileExists(atPath: videoURL.path) else {
+            print("❌ Video file not found: \(videoURL.path)")
+            return
+        }
+        
         player = AVPlayer(url: videoURL)
     }
 
     private func seekPlayer(to time: Double) {
-        player?.seek(to: CMTime(seconds: time, preferredTimescale: 600))
+        guard let player = player, player.currentItem != nil else { return }
+        
+        let cmTime = CMTime(seconds: time, preferredTimescale: 600)
+        player.seek(to: cmTime) { completed in
+            if !completed {
+                print("❌ Seek operation failed for time: \(time)")
+            }
+        }
     }
 
     private func addComment(text: String, priority: ReviewComment.Priority) {

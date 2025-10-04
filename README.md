@@ -19,7 +19,7 @@ EndoReels is a revolutionary iOS app designed for the medical community to share
 ### 📱 Core Functionality
 - **Guided Case Creator**: Templated case entry with standardized patient context fields
 - **Secure Media Hub**: Support for CT slices, endoscopy videos, fluorescence imaging, and pathology slides
-- **AI-Powered De-identification**: Automated PHI detection & redaction
+- **Privacy Safeguards**: PHI heatmap checklist with manual redaction workflow (automation queued for later milestone)
 - **Clinical Feed**: Vertical scrolling between cases with structured case layouts
 - **Knowledge Hub**: Faceted search by procedure, anatomy, pathology, device, and difficulty
 - **Academic Credibility**: Multi-tier verification system with Blue and Gold badges
@@ -35,7 +35,7 @@ EndoReels is a revolutionary iOS app designed for the medical community to share
 
 ### 🔒 Safety & Compliance
 - **PHI Heatmap**: OCR/NER detection with auto-tracked blur for protected content
-- **Multi-layer Moderation**: AI-assisted, community-flagging, and expert review
+- **Multi-layer Moderation**: Expert-led review with community flagging (automation returns post-MVP)
 - **Clinical Integrity Mode**: Prevents excessive manipulation that could mislead viewers
 - **Mandatory Privacy Checklist**: Ensures consent and PHI removal before publishing
 
@@ -125,7 +125,7 @@ EndoReels/
 - Demo data is included for testing and development
 - All files are structured at the repository root for optimal accessibility
 - Runtime configuration is provided through environment variables. Copy `.env.example` to `.env` (not committed) and fill in your Supabase and Railway secrets before running features that rely on the network layer.
-- Sign in with a Supabase email/password account after launch to unlock AI processing and credit management (anon credentials will only load demo data).
+- Sign in with a Supabase email/password account after launch to sync review credits and moderation access (anon credentials will only load demo data).
 - Need to craft demo cases from desktop? Check out `web-demo/` for a Vite-based authoring tool that exports JSON in the same shape used by the app's seed data.
 
 ---

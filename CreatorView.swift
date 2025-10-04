@@ -39,6 +39,8 @@ struct CreatorView: View {
     @State private var isProcessingImport = false
     @State private var selectedTemplate: StoryboardTemplate = .demo
     @State private var selectedCasePreset: CasePreset = .demoPulmonary
+    @State private var showTimelineEditor = false
+    @State private var timelineDraft: Draft?
 
     init(onClose: (() -> Void)? = nil) {
         self.onClose = onClose
@@ -53,6 +55,7 @@ struct CreatorView: View {
                 templateSwitcher
                 storyboard
                 mediaLibrary
+                manualDraftPreview
                 privacyChecklist
                 publishingCard
             }
@@ -97,6 +100,26 @@ struct CreatorView: View {
                 steps: stepDrafts,
                 assets: store.importedAssets
             )
+        }
+        .fullScreenCover(isPresented: $showTimelineEditor, onDismiss: commitTimelineDraftIfNeeded) {
+            NavigationStack {
+                if let binding = timelineDraftBinding {
+                    TimelineEditorView(draft: binding) { updatedDraft in
+                        timelineDraft = updatedDraft
+                        showTimelineEditor = false
+                    }
+                } else {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                        Text("Preparing draft…")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button("Cancel") { showTimelineEditor = false }
+                            .buttonStyle(.bordered)
+                    }
+                    .padding()
+                }
+            }
         }
         .onChange(of: serviceLine, initial: false) { oldValue, newValue in
             let options = newValue.defaultProcedures
@@ -359,6 +382,50 @@ struct CreatorView: View {
         }
     }
 
+    private var manualDraftPreview: some View {
+        Group {
+            if let draft = appState.activeDraft {
+                VStack(alignment: .leading, spacing: 16) {
+                    header("Manual Edit Draft")
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(draft.timeline.title.isEmpty ? "Untitled Draft" : draft.timeline.title)
+                            .font(.subheadline.weight(.semibold))
+                        Text(draft.asset.uri.lastPathComponent)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        if let proxyURL = draft.asset.proxyURL {
+                            VideoPlayer(player: AVPlayer(url: proxyURL))
+                                .frame(height: 180)
+                                .cornerRadius(12)
+                        } else {
+                            ProgressView("Generating proxy…")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        ProcessingStatusRow(title: "Proxy video", isReady: draft.asset.proxyURL != nil, icon: "film")
+                        ProcessingStatusRow(title: "Thumbnail sprite", isReady: draft.asset.thumbnailSpriteURL != nil, icon: "photo.on.rectangle")
+                        ProcessingStatusRow(title: "Waveform", isReady: draft.asset.waveformURL != nil, icon: "waveform")
+                        Button {
+                            guard let draft = appState.activeDraft else { return }
+                            timelineDraft = draft
+                            Task { @MainActor in
+                                showTimelineEditor = true
+                            }
+                        } label: {
+                            Label("Open Timeline Editor", systemImage: "timeline.selection")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(appState.activeDraft == nil)
+                    }
+                    .padding()
+                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+                }
+            }
+        }
+    }
+
     private var privacyChecklist: some View {
         VStack(alignment: .leading, spacing: 16) {
             header("Privacy & De-ID")
@@ -388,7 +455,7 @@ struct CreatorView: View {
             header("Publishing")
             VStack(alignment: .leading, spacing: 12) {
                 Label("Feed visibility: Specialists in Pulmonology", systemImage: "rectangle.stack.badge.play")
-                Label("Collections: Airway Emergencies Sprint", systemImage: "bookmark.collection")
+                Label("Collections: Airway Emergencies Sprint", systemImage: "books.vertical")
                 Label("Trust tier: Clinician (Blue)", systemImage: "checkmark.seal")
                 if let onClose {
                     Button(role: .destructive) {
@@ -577,7 +644,7 @@ struct CreatorView: View {
         }
     }
 
-    private func attachAsset(_ asset: MediaAsset) {
+    private func attachAsset(_ asset: ImportedMediaAsset) {
         guard let selectedStepID, let index = stepDrafts.firstIndex(where: { $0.id == selectedStepID }) else { return }
         var updatedStep = stepDrafts[index]
 
@@ -637,11 +704,11 @@ struct CreatorView: View {
         }
     }
 
-    private func sampleTranscript(for asset: MediaAsset) -> String {
+    private func sampleTranscript(for asset: ImportedMediaAsset) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
-        return "AI transcript generated \(formatter.string(from: .now)). Highlights key narration for review."
+        return "Manual transcript captured \(formatter.string(from: .now)). Highlights key narration for review."
     }
 
     private func handlePhotoSelections(_ items: [PhotosPickerItem]) async {
@@ -657,7 +724,10 @@ struct CreatorView: View {
         for item in items {
             do {
                 if let asset = try await importPhotoItem(item) {
-                    await MainActor.run { store.addImportedAsset(asset) }
+                    await MainActor.run {
+                        store.addImportedAsset(asset)
+                        appState.prepareDraftForImportedVideo(asset, title: title, difficulty: difficulty, store: store)
+                    }
                 }
             } catch {
                 await MainActor.run { importError = error.localizedDescription }
@@ -665,10 +735,10 @@ struct CreatorView: View {
         }
     }
 
-    private func importPhotoItem(_ item: PhotosPickerItem) async throws -> MediaAsset? {
+    private func importPhotoItem(_ item: PhotosPickerItem) async throws -> ImportedMediaAsset? {
         if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {
             if let movie = try await item.loadTransferable(type: MovieFile.self) {
-                return try await MediaAsset.make(from: movie.url, source: .photoLibrary)
+                return try await ImportedMediaAsset.make(from: movie.url, source: .photoLibrary)
             }
         }
 
@@ -677,7 +747,7 @@ struct CreatorView: View {
             let fileExtension = imageContentType?.preferredFilenameExtension ?? "jpg"
             let tempURL = tempURL(for: "\(UUID().uuidString).\(fileExtension)")
             try data.write(to: tempURL)
-            return try await MediaAsset.make(from: tempURL, source: .photoLibrary)
+            return try await ImportedMediaAsset.make(from: tempURL, source: .photoLibrary)
         }
 
         return nil
@@ -705,8 +775,11 @@ struct CreatorView: View {
                     try FileManager.default.removeItem(at: destination)
                 }
                 try FileManager.default.copyItem(at: url, to: destination)
-                let asset = try await MediaAsset.make(from: destination, source: .filesProvider)
-                await MainActor.run { store.addImportedAsset(asset) }
+                let asset = try await ImportedMediaAsset.make(from: destination, source: .filesProvider)
+                await MainActor.run {
+                    store.addImportedAsset(asset)
+                    appState.prepareDraftForImportedVideo(asset, title: title, difficulty: difficulty, store: store)
+                }
             } catch {
                 await MainActor.run { importError = error.localizedDescription }
             }
@@ -783,8 +856,8 @@ private struct StepDraft: Identifiable {
     var focus: String
     var captureType: CaptureType
     var overlays: [String]
-    var mediaAssetIDs: [MediaAsset.ID]
-    var audioAssetIDs: [MediaAsset.ID]
+    var mediaAssetIDs: [ImportedMediaAsset.ID]
+    var audioAssetIDs: [ImportedMediaAsset.ID]
     var prefersAutoTranscript: Bool
 
     func duplicated(withOrder order: Int) -> StepDraft {
@@ -817,8 +890,8 @@ private struct StepDraft: Identifiable {
 private struct TimelineStepCard: View {
     let step: StepDraft
     let isSelected: Bool
-    let linkedAssets: [MediaAsset]
-    let audioAssets: [MediaAsset]
+    let linkedAssets: [ImportedMediaAsset]
+    let audioAssets: [ImportedMediaAsset]
     let onToggleTranscript: () -> Void
     let onEdit: () -> Void
     let onDuplicate: () -> Void
@@ -909,13 +982,13 @@ private struct TimelineStepCard: View {
 private struct StepEditorSheet: View {
     @State private var workingStep: StepDraft
     @State private var newOverlayText: String = ""
-    let availableAssets: [MediaAsset]
+    let availableAssets: [ImportedMediaAsset]
     let onSave: (StepDraft) -> Void
     let onCancel: () -> Void
 
     @Environment(\.dismiss) private var dismiss
 
-    init(step: StepDraft, availableAssets: [MediaAsset], onSave: @escaping (StepDraft) -> Void, onCancel: @escaping () -> Void) {
+    init(step: StepDraft, availableAssets: [ImportedMediaAsset], onSave: @escaping (StepDraft) -> Void, onCancel: @escaping () -> Void) {
         _workingStep = State(initialValue: step)
         self.availableAssets = availableAssets
         self.onSave = onSave
@@ -1005,20 +1078,20 @@ private struct StepEditorSheet: View {
         }
     }
 
-    private var visualAttachments: [MediaAsset] {
+    private var visualAttachments: [ImportedMediaAsset] {
         workingStep.mediaAssetIDs.compactMap { id in
             availableAssets.first(where: { $0.id == id })
         }
     }
 
-    private var audioAttachments: [MediaAsset] {
+    private var audioAttachments: [ImportedMediaAsset] {
         workingStep.audioAssetIDs.compactMap { id in
             availableAssets.first(where: { $0.id == id })
         }
     }
 
     private struct AttachmentRow: View {
-        let asset: MediaAsset
+        let asset: ImportedMediaAsset
         let onRemove: () -> Void
 
         var body: some View {
@@ -1042,7 +1115,7 @@ private struct StepEditorSheet: View {
 }
 
 private struct AudioAttachmentSummary: View {
-    let assets: [MediaAsset]
+    let assets: [ImportedMediaAsset]
     let prefersTranscript: Bool
     let onToggleTranscript: () -> Void
 
@@ -1082,7 +1155,7 @@ private struct AudioAttachmentSummary: View {
 }
 
 private struct MediaAssetPreview: View {
-    let asset: MediaAsset
+    let asset: ImportedMediaAsset
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1101,7 +1174,11 @@ private struct MediaAssetPreview: View {
 
             switch asset.kind {
             case .video:
-                if let preview = asset.thumbnail {
+                if let proxy = asset.proxyURL {
+                    VideoPlayer(player: AVPlayer(url: proxy))
+                        .frame(height: 160)
+                        .cornerRadius(12)
+                } else if let preview = asset.thumbnail {
                     Image(uiImage: preview)
                         .resizable()
                         .scaledToFill()
@@ -1138,6 +1215,12 @@ private struct MediaAssetPreview: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(3)
                 }
+            }
+
+            if asset.kind == .video, asset.thumbnailSpriteURL != nil {
+                Label("Sprite ready", systemImage: "square.grid.2x2")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -1204,8 +1287,32 @@ private struct AudioPreviewWaveform: View {
     }
 }
 
+private struct ProcessingStatusRow: View {
+    let title: String
+    let isReady: Bool
+    let icon: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .foregroundStyle(isReady ? .green : .secondary)
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Image(systemName: isReady ? "checkmark.circle.fill" : "clock")
+                .foregroundStyle(isReady ? .green : .secondary)
+        }
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color(.tertiarySystemBackground))
+        )
+    }
+}
+
 private struct MediaAssetRow: View {
-    let asset: MediaAsset
+    let asset: ImportedMediaAsset
     let canAttach: Bool
     let isAttached: Bool
     let attachAction: () -> Void
@@ -1371,7 +1478,7 @@ private struct ReelPreviewSheet: View {
     let includeVoiceover: Bool
     let draftNotes: String
     let steps: [StepDraft]
-    let assets: [MediaAsset]
+    let assets: [ImportedMediaAsset]
 
     @Environment(\.dismiss) private var dismiss
 
@@ -1483,13 +1590,13 @@ private struct ReelPreviewSheet: View {
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
     }
 
-    private func assets(for step: StepDraft) -> [MediaAsset] {
+    private func assets(for step: StepDraft) -> [ImportedMediaAsset] {
         step.mediaAssetIDs.compactMap { id in
             assets.first { $0.id == id }
         }
     }
 
-    private func audioAssets(for step: StepDraft) -> [MediaAsset] {
+    private func audioAssets(for step: StepDraft) -> [ImportedMediaAsset] {
         step.audioAssetIDs.compactMap { id in
             assets.first { $0.id == id }
         }
@@ -1498,8 +1605,8 @@ private struct ReelPreviewSheet: View {
 
 private struct PreviewStepCard: View {
     let step: StepDraft
-    let assets: [MediaAsset]
-    let audioAssets: [MediaAsset]
+    let assets: [ImportedMediaAsset]
+    let audioAssets: [ImportedMediaAsset]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1597,7 +1704,7 @@ private struct PreviewStepCard: View {
 }
 
 private struct MediaPlaybackView: View {
-    let asset: MediaAsset
+    let asset: ImportedMediaAsset
     var height: CGFloat
     var fillsHorizontally: Bool = true
 
@@ -1637,19 +1744,27 @@ private struct MediaPlaybackView: View {
         )
         .onAppear {
             guard asset.kind == .video, player == nil else { return }
+            
+            // Validate file exists before creating player
+            guard FileManager.default.fileExists(atPath: asset.url.path) else {
+                print("❌ Video file not found: \(asset.url.path)")
+                return
+            }
+            
             player = AVPlayer(url: asset.url)
             player?.seek(to: .zero)
         }
         .onDisappear {
             player?.pause()
+            player?.replaceCurrentItem(with: nil)
             player = nil
         }
     }
 }
 
 private struct PictureInPicturePreview: View {
-    let primary: MediaAsset
-    let secondary: MediaAsset
+    let primary: ImportedMediaAsset
+    let secondary: ImportedMediaAsset
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -1712,7 +1827,24 @@ private struct PrivacyReviewSheet: View {
 }
 
 private struct AssetIdentifier: Identifiable {
-    let id: MediaAsset.ID
+    let id: ImportedMediaAsset.ID
+}
+
+private extension CreatorView {
+    var timelineDraftBinding: Binding<Draft>? {
+        guard timelineDraft != nil else { return nil }
+        return Binding(
+            get: { timelineDraft! },
+            set: { timelineDraft = $0 }
+        )
+    }
+
+    func commitTimelineDraftIfNeeded() {
+        if let updated = timelineDraft {
+            appState.activeDraft = updated
+        }
+        timelineDraft = nil
+    }
 }
 
 private struct MovieFile: Transferable {

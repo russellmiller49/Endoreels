@@ -14,7 +14,7 @@ enum MediaAssetSource: String, Codable {
     case filesProvider
 }
 
-struct MediaAsset: Identifiable {
+struct ImportedMediaAsset: Identifiable {
     let id: UUID
     var kind: MediaAssetKind
     var url: URL
@@ -26,8 +26,24 @@ struct MediaAsset: Identifiable {
     var thumbnail: UIImage?
     var editedImage: UIImage?
     var transcript: String?
+    var proxyURL: URL?
+    var thumbnailSpriteURL: URL?
+    var waveformURL: URL?
 
-    init(id: UUID = UUID(), kind: MediaAssetKind, url: URL, filename: String, source: MediaAssetSource, createdAt: Date = .now, duration: Double? = nil, trimRange: ClosedRange<Double>? = nil, thumbnail: UIImage? = nil, editedImage: UIImage? = nil, transcript: String? = nil) {
+    init(id: UUID = UUID(),
+         kind: MediaAssetKind,
+         url: URL,
+         filename: String,
+         source: MediaAssetSource,
+         createdAt: Date = .now,
+         duration: Double? = nil,
+         trimRange: ClosedRange<Double>? = nil,
+         thumbnail: UIImage? = nil,
+         editedImage: UIImage? = nil,
+         transcript: String? = nil,
+         proxyURL: URL? = nil,
+         thumbnailSpriteURL: URL? = nil,
+         waveformURL: URL? = nil) {
         self.id = id
         self.kind = kind
         self.url = url
@@ -39,16 +55,19 @@ struct MediaAsset: Identifiable {
         self.thumbnail = thumbnail
         self.editedImage = editedImage
         self.transcript = transcript
+        self.proxyURL = proxyURL
+        self.thumbnailSpriteURL = thumbnailSpriteURL
+        self.waveformURL = waveformURL
     }
 }
 
-extension MediaAsset {
+extension ImportedMediaAsset {
     enum CreationError: Error {
         case unsupportedType
         case unreadableAsset
     }
 
-    static func make(from url: URL, source: MediaAssetSource) async throws -> MediaAsset {
+    static func make(from url: URL, source: MediaAssetSource) async throws -> ImportedMediaAsset {
         let resourceValues = try url.resourceValues(forKeys: [.contentTypeKey, .nameKey, .fileSizeKey])
         guard let contentType = resourceValues.contentType else {
             throw CreationError.unsupportedType
@@ -58,34 +77,34 @@ extension MediaAsset {
             let asset = AVURLAsset(url: url)
             let durationTime = try await asset.load(.duration)
             let thumbnail = await asset.generateThumbnail()
-            return MediaAsset(kind: .video,
-                               url: url,
-                               filename: resourceValues.name ?? url.lastPathComponent,
-                               source: source,
-                               duration: CMTimeGetSeconds(durationTime),
-                               thumbnail: thumbnail)
+            return ImportedMediaAsset(kind: .video,
+                                      url: url,
+                                      filename: resourceValues.name ?? url.lastPathComponent,
+                                      source: source,
+                                      duration: CMTimeGetSeconds(durationTime),
+                                      thumbnail: thumbnail)
         }
 
         if contentType.conforms(to: .image) {
             guard let data = try? Data(contentsOf: url), let image = UIImage(data: data) else {
                 throw CreationError.unreadableAsset
             }
-            return MediaAsset(kind: .image,
-                               url: url,
-                               filename: resourceValues.name ?? url.lastPathComponent,
-                               source: source,
-                               thumbnail: image,
-                               editedImage: image)
+            return ImportedMediaAsset(kind: .image,
+                                      url: url,
+                                      filename: resourceValues.name ?? url.lastPathComponent,
+                                      source: source,
+                                      thumbnail: image,
+                                      editedImage: image)
         }
 
         if contentType.conforms(to: .audio) {
             let asset = AVURLAsset(url: url)
             let durationTime = try await asset.load(.duration)
-            return MediaAsset(kind: .audio,
-                               url: url,
-                               filename: resourceValues.name ?? url.lastPathComponent,
-                               source: source,
-                               duration: CMTimeGetSeconds(durationTime))
+            return ImportedMediaAsset(kind: .audio,
+                                      url: url,
+                                      filename: resourceValues.name ?? url.lastPathComponent,
+                                      source: source,
+                                      duration: CMTimeGetSeconds(durationTime))
         }
 
         throw CreationError.unsupportedType
@@ -156,13 +175,13 @@ extension AVAsset {
     }
 }
 
-extension MediaAsset: Equatable {
-    static func == (lhs: MediaAsset, rhs: MediaAsset) -> Bool {
-        return lhs.id == rhs.id
+extension ImportedMediaAsset: Equatable {
+    static func == (lhs: ImportedMediaAsset, rhs: ImportedMediaAsset) -> Bool {
+        lhs.id == rhs.id
     }
 }
 
-extension MediaAsset: Hashable {
+extension ImportedMediaAsset: Hashable {
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }

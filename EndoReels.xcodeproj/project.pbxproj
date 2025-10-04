@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
+		703E3D612E90A46C008B760B /* EndoReels.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = EndoReels.xcodeproj; sourceTree = "<group>"; };
 		7087847F2E8F4D1800468B14 /* EndoReels.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = EndoReels.xcodeproj; sourceTree = "<group>"; };
 		708784E32E8F4D3C00468B14 /* EndoReels.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = EndoReels.xcodeproj; sourceTree = "<group>"; };
 		7087853A2E903ACE00468B14 /* EndoReels.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = EndoReels.xcodeproj; sourceTree = "<group>"; };
@@ -32,6 +33,11 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		703E3D792E90A46C008B760B /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		708784902E8F4D1800468B14 /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
@@ -127,6 +133,10 @@
 				{
 					ProductGroup = 708785512E903ACE00468B14 /* Products */;
 					ProjectRef = 7087853A2E903ACE00468B14 /* EndoReels.xcodeproj */;
+				},
+				{
+					ProductGroup = 703E3D792E90A46C008B760B /* Products */;
+					ProjectRef = 703E3D612E90A46C008B760B /* EndoReels.xcodeproj */;
 				},
 			);
 			projectRoot = "";
@@ -293,6 +303,10 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "EndoReels needs access to your photo library to import and edit medical videos and images.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "EndoReels needs camera access to record new medical content for your cases.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "EndoReels needs microphone access to record narration and audio for your medical cases.";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "EndoReels may access your media library to import audio for medical presentations.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -325,6 +339,10 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "EndoReels needs access to your photo library to import and edit medical videos and images.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "EndoReels needs camera access to record new medical content for your cases.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "EndoReels needs microphone access to record narration and audio for your medical cases.";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "EndoReels may access your media library to import audio for medical presentations.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

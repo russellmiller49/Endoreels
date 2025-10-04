@@ -10,7 +10,7 @@ struct CreditsBanner: View {
                 .font(.title3)
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 2) {
-                Text("AI Credits")
+                Text("Review Credits")
                     .font(.subheadline.weight(.semibold))
                 Text(creditSubtitle)
                     .font(.caption)
@@ -31,6 +31,6 @@ struct CreditsBanner: View {
     }
 
     private var creditSubtitle: String {
-        "Remaining: \(store.balance.remaining)"
+        "Reserved for upcoming PHI review. Remaining: \(store.balance.remaining)"
     }
 }

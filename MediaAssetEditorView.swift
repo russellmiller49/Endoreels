@@ -5,7 +5,7 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 
 struct MediaAssetEditorView: View {
-    @Binding var asset: MediaAsset
+    @Binding var asset: ImportedMediaAsset
     @Environment(\.dismiss) private var dismiss
     @State private var exportMessage: String?
     @State private var exportError: String?
@@ -55,7 +55,7 @@ struct MediaAssetEditorView: View {
 }
 
 private struct ImageEditorSection: View {
-    @Binding var asset: MediaAsset
+    @Binding var asset: ImportedMediaAsset
     @Binding var exportMessage: String?
     @Binding var exportError: String?
 
@@ -122,7 +122,7 @@ private struct ImageEditorSection: View {
 }
 
 private struct AudioEditorSection: View {
-    @Binding var asset: MediaAsset
+    @Binding var asset: ImportedMediaAsset
     @Binding var exportMessage: String?
     @Binding var exportError: String?
 
@@ -360,7 +360,7 @@ private struct AudioEditorSection: View {
                 let formatter = DateFormatter()
                 formatter.dateStyle = .short
                 formatter.timeStyle = .short
-                asset.updateTranscript("AI transcript generated \(formatter.string(from: .now))\n• Key clinical narration captured for documentation.")
+                asset.updateTranscript("Manual transcript checkpoint \(formatter.string(from: .now))\n• Key clinical narration captured for documentation.")
                 exportMessage = "Transcript generated."
                 isGeneratingTranscript = false
             }
@@ -374,7 +374,7 @@ private struct AudioEditorSection: View {
 }
 
 private struct VideoEditorSection: View {
-    @Binding var asset: MediaAsset
+    @Binding var asset: ImportedMediaAsset
     @Binding var isExporting: Bool
     @Binding var exportMessage: String?
     @Binding var exportError: String?
@@ -532,7 +532,8 @@ private struct VideoEditorSection: View {
 
     private func configurePlayerIfNeeded() {
         guard player.currentItem == nil else { return }
-        let itemAsset = AVURLAsset(url: asset.url)
+        let sourceURL = asset.proxyURL ?? asset.url
+        let itemAsset = AVURLAsset(url: sourceURL)
         let item = AVPlayerItem(asset: itemAsset)
         player.replaceCurrentItem(with: item)
         player.play()

@@ -223,23 +223,24 @@ struct PipelineRun: Identifiable {
     }
 }
 
+@MainActor
 final class DemoDataStore: ObservableObject {
     @Published var reels: [Reel] = []
     @Published var collections: [KnowledgeCollection] = []
     @Published var moderationQueue: [ModerationTicket] = []
     @Published var pipelineRuns: [PipelineRun] = []
-    @Published var importedAssets: [MediaAsset] = []
+    @Published var importedAssets: [ImportedMediaAsset] = []
     @Published var continueWatching: [UserProgress] = []
 
     init() {
         seed()
     }
 
-    func addImportedAsset(_ asset: MediaAsset) {
+    func addImportedAsset(_ asset: ImportedMediaAsset) {
         importedAssets.append(asset)
     }
 
-    func updateImportedAsset(_ asset: MediaAsset) {
+    func updateImportedAsset(_ asset: ImportedMediaAsset) {
         guard let index = importedAssets.firstIndex(where: { $0.id == asset.id }) else { return }
         importedAssets[index] = asset
     }

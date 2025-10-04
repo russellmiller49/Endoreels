@@ -42,13 +42,13 @@ struct CreditsHistoryView: View {
                 }
             }
         }
-        .navigationTitle("AI Credits")
+        .navigationTitle("Review Credits")
         .task { await store.refresh() }
     }
 
     private func transactionTitle(for transaction: CreditTransaction) -> String {
         switch transaction.type {
-        case .debit: return "Processed with AI"
+        case .debit: return "Manual Review Processed"
         case .refund: return "Credit Refunded"
         case .grant: return "Credits Granted"
         }
