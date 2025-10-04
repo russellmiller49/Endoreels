@@ -235,50 +235,58 @@ struct TimelineEditorView: View {
     }
 
     private func configurePlayer() {
-        // Clean up existing player state
+        // Clean up existing player state on main thread
         removeTimeObserver()
         player.pause()
         player.replaceCurrentItem(with: nil)
-        
+
+        // Determine playback URL
         let playbackURL: URL
         if let proxy = draft.asset.proxyURL, FileManager.default.fileExists(atPath: proxy.path) {
             playbackURL = proxy
         } else {
             playbackURL = draft.asset.uri
         }
-        
-        // Validate URL accessibility
+
+        // Validate URL accessibility synchronously (fast check)
         guard FileManager.default.fileExists(atPath: playbackURL.path) else {
             print("❌ Video file not found at: \(playbackURL.path)")
             return
         }
-        
-        let asset = AVURLAsset(url: playbackURL)
-        
-        // Set up resource loader with proper error handling
-        let resourceLoaderQueue = DispatchQueue(label: "AssetLoader", qos: .userInitiated)
-        asset.resourceLoader.setDelegate(nil, queue: resourceLoaderQueue)
-        
-        let item = AVPlayerItem(asset: asset)
-        
-        // Add error handling for the player item
-        NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemFailedToPlayToEndTime,
-            object: item,
-            queue: .main
-        ) { notification in
-            if let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error {
-                print("❌ Player item failed: \(error.localizedDescription)")
+
+        // Move asset creation to background thread to avoid blocking UI
+        Task.detached(priority: .userInitiated) {
+            // Create asset on background thread
+            let asset = AVURLAsset(url: playbackURL)
+
+            // Set up resource loader with proper error handling
+            let resourceLoaderQueue = DispatchQueue(label: "AssetLoader", qos: .userInitiated)
+            asset.resourceLoader.setDelegate(nil, queue: resourceLoaderQueue)
+
+            let item = AVPlayerItem(asset: asset)
+
+            // Switch back to main thread for player operations
+            await MainActor.run {
+                // Add error handling for the player item
+                NotificationCenter.default.addObserver(
+                    forName: .AVPlayerItemFailedToPlayToEndTime,
+                    object: item,
+                    queue: .main
+                ) { notification in
+                    if let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error {
+                        print("❌ Player item failed: \(error.localizedDescription)")
+                    }
+                }
+
+                // Replace current item and configure
+                self.player.replaceCurrentItem(with: item)
+
+                // Wait for item to be ready before seeking
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.seekPlayer(to: self.draft.playhead_s)
+                    self.addTimeObserver()
+                }
             }
-        }
-        
-        // Replace current item and configure
-        player.replaceCurrentItem(with: item)
-        
-        // Wait for item to be ready before seeking
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            self.seekPlayer(to: self.draft.playhead_s)
-            self.addTimeObserver()
         }
     }
 

@@ -9,86 +9,134 @@ struct ThumbnailStripView: View {
     let outPoint: TimeInterval?
 
     @State private var image: UIImage?
-    @State private var loadTask: Task<Void, Never>?
 
     var body: some View {
         GeometryReader { proxy in
-            ZStack(alignment: .leading) {
-                backgroundView
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-                    .clipped()
-                    .onAppear(perform: loadImage)
-                    .onChange(of: spriteURL) { _, _ in loadImage() }
-                    .onDisappear { loadTask?.cancel() }
+            // Guard against degenerate/invalid sizes (avoid division by zero later)
+            let w = max(proxy.size.width, 1)
+            let h = max(proxy.size.height, 1)
 
-                selectionOverlay(width: proxy.size.width)
-                playheadIndicator(width: proxy.size.width)
+            // Validate duration is finite and non-zero to prevent NaN in calculations
+            let safeDuration = max(duration, 0.0001)
+            guard safeDuration.isFinite else {
+                return AnyView(placeholderView(width: w, height: h))
             }
-        }
-    }
 
-    private var backgroundView: some View {
-        Group {
-            if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.gray.opacity(0.1))
-                    .overlay {
-                        ProgressView()
+            return AnyView(
+                ZStack(alignment: .leading) {
+                    // Background image or placeholder
+                    if let image {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: w, height: h)
+                            .clipped()
+                    } else {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.gray.opacity(0.1))
+                            .frame(width: w, height: h)
+                            .overlay {
+                                ProgressView()
+                            }
                     }
+
+                    selectionOverlay(width: w, height: h, duration: safeDuration)
+                    playheadIndicator(width: w, height: h, duration: safeDuration)
+                }
+                .task(id: spriteURL) {
+                    await loadSprite()
+                }
+            )
+        }
+    }
+
+    private func placeholderView(width: CGFloat, height: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 8)
+            .fill(Color.red.opacity(0.1))
+            .frame(width: width, height: height)
+            .overlay {
+                Text("Invalid timeline data")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+    }
+
+    private func selectionOverlay(width: CGFloat, height: CGFloat, duration: TimeInterval) -> some View {
+        ZStack(alignment: .leading) {
+            if let inPoint, let outPoint, outPoint > inPoint,
+               inPoint.isFinite, outPoint.isFinite {
+                let startRatio = (inPoint / duration).clamped(to: 0...1)
+                let endRatio = (outPoint / duration).clamped(to: 0...1)
+                let startX = CGFloat(startRatio) * width
+                let endX = CGFloat(endRatio) * width
+
+                if startX.isFinite && endX.isFinite {
+                    Rectangle()
+                        .fill(Color.blue.opacity(0.2))
+                        .frame(width: max(endX - startX, 2), height: height)
+                        .offset(x: startX)
+                }
             }
         }
     }
 
-    private func selectionOverlay(width: CGFloat) -> some View {
-        let duration = max(duration, 0.1)
-        return ZStack(alignment: .leading) {
-            if let inPoint, let outPoint, outPoint > inPoint {
-                let startX = CGFloat(inPoint / duration) * width
-                let endX = CGFloat(outPoint / duration) * width
+    private func playheadIndicator(width: CGFloat, height: CGFloat, duration: TimeInterval) -> some View {
+        let ratio = playhead.isFinite ? (playhead / duration).clamped(to: 0...1) : 0
+        let x = CGFloat(ratio) * width
+
+        return Group {
+            if x.isFinite {
                 Rectangle()
-                    .fill(Color.blue.opacity(0.2))
-                    .frame(width: max(endX - startX, 2), height: .infinity)
-                    .offset(x: startX)
+                    .fill(Color.blue)
+                    .frame(width: 2, height: height)
+                    .offset(x: x - 1)
             }
         }
     }
 
-    private func playheadIndicator(width: CGFloat) -> some View {
-        let duration = max(duration, 0.1)
-        let x = CGFloat(playhead / duration).clamped(to: 0...1) * width
-        return Rectangle()
-            .fill(Color.blue)
-            .frame(width: 2, height: .infinity)
-            .offset(x: x - 1)
-    }
-
-    private func loadImage() {
-        loadTask?.cancel()
-        guard let spriteURL else {
+    @MainActor
+    private func loadSprite() async {
+        // Early validation: check URL is valid before attempting I/O
+        guard let url = spriteURL else {
+            print("📸 ThumbnailStripView: No sprite URL, showing placeholder")
             image = nil
             return
         }
 
-        loadTask = Task(priority: .utility) {
-            let uiImage: UIImage?
-            if spriteURL.isFileURL {
-                uiImage = UIImage(contentsOfFile: spriteURL.path)
-            } else if let data = try? Data(contentsOf: spriteURL) {
-                uiImage = UIImage(data: data)
-            } else {
-                uiImage = nil
+        // Validate it's a file URL and exists
+        guard url.isFileURL else {
+            print("❌ ThumbnailStripView: URL is not a file URL: \(url)")
+            image = nil
+            return
+        }
+
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            print("❌ ThumbnailStripView: File does not exist at \(url.path)")
+            image = nil
+            return
+        }
+
+        // Perform I/O off the main actor
+        let loadedImage: UIImage? = await Task.detached(priority: .utility) { () -> UIImage? in
+            // Read file data
+            guard let data = try? Data(contentsOf: url),
+                  !data.isEmpty else {
+                print("❌ ThumbnailStripView: Failed to read data from \(url.path)")
+                return nil
             }
 
-            await MainActor.run {
-                guard !Task.isCancelled else { return }
-                self.image = uiImage
-                self.loadTask = nil
+            // Decode image (can be slow for large sprites)
+            guard let img = UIImage(data: data) else {
+                print("❌ ThumbnailStripView: Failed to decode image from \(data.count) bytes at \(url.path)")
+                return nil
             }
-        }
+
+            print("✅ ThumbnailStripView: Successfully loaded sprite (\(img.size.width)×\(img.size.height))")
+            return img
+        }.value
+
+        // Update @State ONLY on MainActor (we're already on it due to @MainActor annotation)
+        image = loadedImage
     }
 }
 
