@@ -12,11 +12,12 @@ struct WaveformView: View {
     var body: some View {
         GeometryReader { proxy in
             // Guard against degenerate sizes
-            let w = max(proxy.size.width, 1)
-            let h = max(proxy.size.height, 1)
+            let size = safeSize(proxy.size.width, proxy.size.height, fallback: CGSize(width: 1, height: 1))
+            let w = size.width
+            let h = size.height
 
             // Validate duration
-            let safeDuration = max(duration, 0.0001)
+            let safeDuration = max(duration.finiteOrZero, 0.0001)
             guard safeDuration.isFinite else {
                 return AnyView(placeholderView(width: w, height: h, message: "Invalid duration"))
             }
@@ -24,7 +25,7 @@ struct WaveformView: View {
             return AnyView(
                 ZStack(alignment: .leading) {
                     waveformPath(size: CGSize(width: w, height: h))
-                        .stroke(Color.accentColor.opacity(0.6), lineWidth: 1)
+                        .stroke(Color.blue.opacity(0.6), lineWidth: 1)
                     selectionOverlay(width: w, height: h, duration: safeDuration)
                     playheadIndicator(width: w, height: h, duration: safeDuration)
                     if samples.isEmpty {
@@ -46,7 +47,8 @@ struct WaveformView: View {
     private func placeholderView(width: CGFloat, height: CGFloat, message: String) -> some View {
         RoundedRectangle(cornerRadius: 8)
             .fill(Color.gray.opacity(0.08))
-            .frame(width: width, height: height)
+            .frame(width: safeSize(width, height, fallback: CGSize(width: 1, height: 1)).width,
+                   height: safeSize(width, height, fallback: CGSize(width: 1, height: 1)).height)
             .overlay {
                 Text(message)
                     .font(.caption2)

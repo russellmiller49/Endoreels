@@ -133,7 +133,15 @@ private struct AudioEditorSection: View {
     @State private var volume: Double = 1.0
     @State private var isGeneratingTranscript = false
 
-    private var duration: Double { asset.duration ?? player?.duration ?? 0 }
+    private var duration: Double {
+        if let sanitized = asset.duration.sanitizedNonNegative {
+            return sanitized
+        }
+        if let playerDuration = player?.duration {
+            return playerDuration.finiteOrZero
+        }
+        return 0
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -379,7 +387,7 @@ private struct VideoEditorSection: View {
     @Binding var exportMessage: String?
     @Binding var exportError: String?
 
-    @State private var player = AVPlayer()
+    @StateObject private var playback = VideoPlaybackCoordinator()
     @State private var startTime: Double = 0
     @State private var endTime: Double = 0
     @State private var playbackSpeed: Double = 1.0
@@ -389,21 +397,40 @@ private struct VideoEditorSection: View {
     @State private var freezeFrameTime: Double? = nil
     @State private var showAdvancedOptions = false
 
-    private var duration: Double { asset.duration ?? 0 }
+    private var duration: Double {
+        if let sanitized = asset.duration.sanitizedNonNegative {
+            return sanitized
+        }
+        if let playerDuration = playback.player?.currentItem?.duration.sanitizedSeconds {
+            return playerDuration.finiteOrZero
+        }
+        return 0
+    }
     private var sliderUpperBound: Double { max(duration, 1) }
+    private var player: AVPlayer? { playback.player }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            VideoPlayer(player: player)
-                .frame(height: 220)
-                .cornerRadius(12)
-                .onAppear { configurePlayerIfNeeded() }
-                .overlay(alignment: .bottom) {
-                    if let freezeTime = freezeFrameTime {
-                        Text("Freeze frame at \(freezeTime, specifier: "%.1f")s")
-                            .font(.caption)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
+            ZStack {
+                if let player {
+                    VideoPlayer(player: player)
+                } else {
+                    Color.black.opacity(0.85)
+                    ProgressView()
+                        .tint(.white)
+                }
+            }
+            .frame(height: 220)
+            .cornerRadius(12)
+            .onAppear { configurePlayer() }
+            .onChange(of: asset.proxyURL) { _, _ in configurePlayer() }
+            .onChange(of: asset.url) { _, _ in configurePlayer() }
+            .overlay(alignment: .bottom) {
+                if let freezeTime = freezeFrameTime {
+                    Text("Freeze frame at \(freezeTime, specifier: "%.1f")s")
+                        .font(.caption)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
                             .background(.thinMaterial)
                             .clipShape(Capsule())
                             .padding(8)
@@ -442,7 +469,7 @@ private struct VideoEditorSection: View {
                     VStack(alignment: .leading, spacing: 16) {
                         LabeledSlider(title: "Speed (\(playbackSpeed < 1 ? "Slow Motion" : playbackSpeed > 1 ? "Speed Up" : "Normal"))", value: $playbackSpeed, range: 0.25...4.0)
                             .onChange(of: playbackSpeed) { _, newValue in
-                                player.rate = Float(newValue)
+                                player?.rate = Float(newValue)
                             }
 
                         Divider()
@@ -479,7 +506,9 @@ private struct VideoEditorSection: View {
                                 }
                             } else {
                                 Button {
-                                    freezeFrameTime = player.currentTime().seconds
+                                    if let current = player?.currentTime().seconds {
+                                        freezeFrameTime = current
+                                    }
                                 } label: {
                                     Label("Add freeze frame at current position", systemImage: "pause.rectangle")
                                         .font(.caption)
@@ -518,6 +547,7 @@ private struct VideoEditorSection: View {
             }
         }
         .onAppear { configureSliderBounds() }
+        .onDisappear { playback.teardown() }
     }
 
     private var disclosureText: String {
@@ -530,26 +560,39 @@ private struct VideoEditorSection: View {
         return effects.joined(separator: ", ")
     }
 
-    private func configurePlayerIfNeeded() {
-        guard player.currentItem == nil else { return }
+    private func configurePlayer() {
+        playback.teardown()
+
         let sourceURL = asset.proxyURL ?? asset.url
-        let itemAsset = AVURLAsset(url: sourceURL)
-        let item = AVPlayerItem(asset: itemAsset)
-        player.replaceCurrentItem(with: item)
-        player.play()
-        player.pause()
+        guard FileManager.default.fileExists(atPath: sourceURL.path) else {
+            exportError = "Video file not found at \(sourceURL.lastPathComponent)."
+            return
+        }
+
+        playback.prepare(url: sourceURL, autoPlay: false, onReady: {
+            playback.player?.pause()
+            playback.player?.seek(to: .zero)
+        }, onFailure: { error in
+            exportError = error.localizedDescription
+        })
     }
 
     private func configureSliderBounds() {
         let defaultDuration = sliderUpperBound
-        startTime = asset.trimRange?.lowerBound ?? 0
-        endTime = asset.trimRange?.upperBound ?? defaultDuration
+        if let range = asset.trimRange {
+            startTime = range.lowerBound.finiteOrZero
+            endTime = max(range.upperBound.finiteOrZero, startTime)
+        } else {
+            startTime = 0
+            endTime = defaultDuration
+        }
         if endTime <= startTime {
             endTime = defaultDuration
         }
     }
 
     private func seek(to seconds: Double) {
+        guard let player else { return }
         let time = CMTime(seconds: seconds, preferredTimescale: 600)
         player.seek(to: time)
     }
@@ -571,9 +614,9 @@ private struct VideoEditorSection: View {
             let newThumbnail = await AVURLAsset(url: outputURL).generateThumbnail()
             await MainActor.run {
                 asset.applyTrimmedVideo(url: outputURL, duration: newDuration, range: startTime...endTime, thumbnail: newThumbnail)
-                let refreshedItem = AVPlayerItem(asset: AVURLAsset(url: outputURL))
-                player.replaceCurrentItem(with: refreshedItem)
                 exportMessage = "Trimmed clip saved."
+                configurePlayer()
+                configureSliderBounds()
             }
         } catch {
             await MainActor.run { exportError = error.localizedDescription }

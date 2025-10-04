@@ -26,7 +26,7 @@ public struct MediaAsset: Identifiable, Codable, Hashable, Sendable {
                 waveformURL: URL? = nil) {
         self.id = id
         self.uri = uri
-        self.duration = duration
+        self.duration = duration.finiteOrZero
         self.frameRate = frameRate
         self.createdAt = createdAt
         self.proxyURL = proxyURL
@@ -64,7 +64,8 @@ extension MediaAsset {
         self.id = try container.decode(UUID.self, forKey: .id)
         let uriString = try container.decode(String.self, forKey: .uri)
         self.uri = try MediaAsset.resolveURL(from: uriString)
-        self.duration = try container.decode(TimeInterval.self, forKey: .duration)
+        let rawDuration = try container.decode(TimeInterval.self, forKey: .duration)
+        self.duration = rawDuration.finiteOrZero
         self.frameRate = try container.decode(Double.self, forKey: .frameRate)
         let createdAtInterval = try container.decode(TimeInterval.self, forKey: .createdAt)
         self.createdAt = Date(timeIntervalSince1970: createdAtInterval)
@@ -167,8 +168,9 @@ public struct Draft: Identifiable, Codable, Sendable {
         self.asset = asset
         self.segments = segments
         self.timeline = timeline
-        self.playhead_s = playhead_s
-        self.zoomLevel = zoomLevel
+        // Sanitize playhead to prevent NaN in layout
+        self.playhead_s = playhead_s.isFinite ? max(playhead_s, 0) : 0
+        self.zoomLevel = zoomLevel.isFinite ? max(zoomLevel, 0.1) : 1.0
         self.selectedSegmentID = selectedSegmentID
         self.updatedAt = updatedAt
     }
@@ -204,8 +206,14 @@ extension Draft {
         self.asset = try container.decode(MediaAsset.self, forKey: .asset)
         self.segments = try container.decode([UUID: Segment].self, forKey: .segments)
         self.timeline = try container.decode(Timeline.self, forKey: .timeline)
-        self.playhead_s = try container.decode(TimeInterval.self, forKey: .playhead_s)
-        self.zoomLevel = try container.decode(Double.self, forKey: .zoomLevel)
+
+        // Sanitize decoded values to prevent NaN propagation
+        let decodedPlayhead = try container.decode(TimeInterval.self, forKey: .playhead_s)
+        self.playhead_s = decodedPlayhead.isFinite ? max(decodedPlayhead, 0) : 0
+
+        let decodedZoom = try container.decode(Double.self, forKey: .zoomLevel)
+        self.zoomLevel = decodedZoom.isFinite ? max(decodedZoom, 0.1) : 1.0
+
         self.selectedSegmentID = try container.decodeIfPresent(UUID.self, forKey: .selectedSegmentID)
         let updatedAtInterval = try container.decode(TimeInterval.self, forKey: .updatedAt)
         self.updatedAt = Date(timeIntervalSince1970: updatedAtInterval)

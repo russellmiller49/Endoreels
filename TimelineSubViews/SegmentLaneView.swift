@@ -99,11 +99,11 @@ private struct SegmentChip: View {
             .font(.caption)
         }
         .padding(12)
-        .background(isSelected ? Color.accentColor.opacity(0.15) : Color(.secondarySystemBackground))
+        .background(isSelected ? Color.blue.opacity(0.15) : Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 1)
+                .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 1)
         )
         .onTapGesture(perform: onSelect)
     }

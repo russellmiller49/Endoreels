@@ -53,7 +53,7 @@ struct ToolbarView: View {
             Button {
                 onRemoveSilence()
             } label: {
-                Label("Silence", systemImage: "waveform.badge.mute")
+                Label("Silence", systemImage: "speaker.slash")
             }
             .buttonStyle(.bordered)
 

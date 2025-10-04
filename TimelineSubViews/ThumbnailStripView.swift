@@ -13,11 +13,12 @@ struct ThumbnailStripView: View {
     var body: some View {
         GeometryReader { proxy in
             // Guard against degenerate/invalid sizes (avoid division by zero later)
-            let w = max(proxy.size.width, 1)
-            let h = max(proxy.size.height, 1)
+            let size = safeSize(proxy.size.width, proxy.size.height, fallback: CGSize(width: 1, height: 1))
+            let w = size.width
+            let h = size.height
 
             // Validate duration is finite and non-zero to prevent NaN in calculations
-            let safeDuration = max(duration, 0.0001)
+            let safeDuration = max(duration.finiteOrZero, 0.0001)
             guard safeDuration.isFinite else {
                 return AnyView(placeholderView(width: w, height: h))
             }
@@ -53,7 +54,8 @@ struct ThumbnailStripView: View {
     private func placeholderView(width: CGFloat, height: CGFloat) -> some View {
         RoundedRectangle(cornerRadius: 8)
             .fill(Color.red.opacity(0.1))
-            .frame(width: width, height: height)
+            .frame(width: safeSize(width, height, fallback: CGSize(width: 1, height: 1)).width,
+                   height: safeSize(width, height, fallback: CGSize(width: 1, height: 1)).height)
             .overlay {
                 Text("Invalid timeline data")
                     .font(.caption2)

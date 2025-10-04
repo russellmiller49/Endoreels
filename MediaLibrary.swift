@@ -76,12 +76,13 @@ extension ImportedMediaAsset {
         if contentType.conforms(to: .movie) {
             let asset = AVURLAsset(url: url)
             let durationTime = try await asset.load(.duration)
+            let durationSeconds = durationTime.sanitizedSeconds
             let thumbnail = await asset.generateThumbnail()
             return ImportedMediaAsset(kind: .video,
                                       url: url,
                                       filename: resourceValues.name ?? url.lastPathComponent,
                                       source: source,
-                                      duration: CMTimeGetSeconds(durationTime),
+                                      duration: durationSeconds,
                                       thumbnail: thumbnail)
         }
 
@@ -100,11 +101,12 @@ extension ImportedMediaAsset {
         if contentType.conforms(to: .audio) {
             let asset = AVURLAsset(url: url)
             let durationTime = try await asset.load(.duration)
+            let durationSeconds = durationTime.sanitizedSeconds
             return ImportedMediaAsset(kind: .audio,
                                       url: url,
                                       filename: resourceValues.name ?? url.lastPathComponent,
                                       source: source,
-                                      duration: CMTimeGetSeconds(durationTime))
+                                      duration: durationSeconds)
         }
 
         throw CreationError.unsupportedType

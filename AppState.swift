@@ -62,9 +62,10 @@ final class AppState: ObservableObject {
 
     func prepareDraftForImportedVideo(_ importedAsset: ImportedMediaAsset, title: String, difficulty: String, store: DemoDataStore) {
         guard importedAsset.kind == .video else { return }
+        let sanitizedDuration = importedAsset.duration.sanitizedNonNegative ?? 0
         let mediaAsset = MediaAsset(id: importedAsset.id,
                                     uri: importedAsset.url,
-                                    duration: importedAsset.duration ?? 0,
+                                    duration: sanitizedDuration,
                                     frameRate: defaultFrameRate,
                                     createdAt: importedAsset.createdAt)
         if activeDraft == nil {

@@ -89,89 +89,15 @@ public final class MediaProcessingPipeline {
         }
         
         let asset = AVURLAsset(url: assetURL)
-        var durationSeconds: Double = 0
-        
         do {
             let duration = try await asset.load(.duration)
-            durationSeconds = CMTimeGetSeconds(duration)
-            guard durationSeconds.isFinite, durationSeconds > 0 else {
+            guard let durationSeconds = duration.sanitizedSeconds, durationSeconds > 0 else {
                 throw NSError(domain: "MediaProcessingPipeline", code: -5, userInfo: [NSLocalizedDescriptionKey: "Asset duration unavailable"])
             }
+            return try await generateThumbnailSprite(from: asset, durationSeconds: durationSeconds, frameInterval: frameIntervalSeconds)
         } catch {
             print("❌ Failed to load asset for thumbnails: \(error.localizedDescription)")
             throw NSError(domain: "MediaProcessingPipeline", code: -5, userInfo: [NSLocalizedDescriptionKey: "Unable to load video asset for thumbnails: \(error.localizedDescription)"])
-        }
-
-        let generator = AVAssetImageGenerator(asset: asset)
-        generator.appliesPreferredTrackTransform = true
-        generator.requestedTimeToleranceBefore = .zero
-        generator.requestedTimeToleranceAfter = .zero
-
-        let frameInterval = max(frameIntervalSeconds, 0.5)
-        let frameCount = max(1, Int(ceil(durationSeconds / frameInterval)))
-        var images: [CGImage] = []
-        images.reserveCapacity(frameCount)
-
-        if #available(iOS 18, *) {
-            for index in 0..<frameCount {
-                let seconds = min(Double(index) * frameInterval, durationSeconds)
-                let time = CMTime(seconds: seconds, preferredTimescale: 600)
-                let image = try await generateImageAsync(generator: generator, time: time)
-                images.append(image)
-            }
-            if images.isEmpty {
-                let fallback = try await generateImageAsync(generator: generator, time: .zero)
-                images.append(fallback)
-            }
-        } else {
-            for index in 0..<frameCount {
-                let seconds = min(Double(index) * frameInterval, durationSeconds)
-                let time = CMTime(seconds: seconds, preferredTimescale: 600)
-                do {
-                    let image = try generator.copyCGImage(at: time, actualTime: nil)
-                    images.append(image)
-                } catch {
-                    continue
-                }
-            }
-            if images.isEmpty, let fallback = try? generator.copyCGImage(at: .zero, actualTime: nil) {
-                images.append(fallback)
-            }
-        }
-
-        guard let firstImage = images.first else {
-            throw NSError(domain: "MediaProcessingPipeline", code: -6, userInfo: [NSLocalizedDescriptionKey: "Unable to capture frames for sprite"])
-        }
-
-        let columns = min(4, images.count)
-        let rows = Int(ceil(Double(images.count) / Double(columns)))
-        let baseWidth = CGFloat(firstImage.width)
-        let baseHeight = CGFloat(firstImage.height)
-        let targetWidth: CGFloat = min(320, baseWidth)
-        let scale = targetWidth / baseWidth
-        let tileSize = CGSize(width: targetWidth, height: baseHeight * scale)
-
-        let rendererSize = CGSize(width: tileSize.width * CGFloat(columns),
-                                  height: tileSize.height * CGFloat(rows))
-
-        let renderer = UIGraphicsImageRenderer(size: rendererSize, format: UIGraphicsImageRendererFormat.default())
-        let spriteImage = renderer.image { context in
-            for (index, cgImage) in images.enumerated() {
-                let column = index % columns
-                let row = index / columns
-                let origin = CGPoint(x: CGFloat(column) * tileSize.width,
-                                     y: CGFloat(row) * tileSize.height)
-                let rect = CGRect(origin: origin, size: tileSize)
-                UIImage(cgImage: cgImage).draw(in: rect)
-            }
-        }
-
-        let outputURL = makeTemporaryURL(filename: "\(UUID().uuidString).png")
-        if let data = spriteImage.pngData() {
-            try data.write(to: outputURL, options: [.atomic])
-            return outputURL
-        } else {
-            throw NSError(domain: "MediaProcessingPipeline", code: -7, userInfo: [NSLocalizedDescriptionKey: "Failed to encode sprite image"])
         }
     }
 
@@ -229,19 +155,21 @@ public final class MediaProcessingPipeline {
 
         while reader.status == .reading {
             guard let sampleBuffer = output.copyNextSampleBuffer() else { break }
-            if let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) {
-                let length = CMBlockBufferGetDataLength(blockBuffer)
-                var data = Data(count: length)
-                data.withUnsafeMutableBytes { pointer in
-                    guard let baseAddress = pointer.baseAddress else { return }
-                    CMBlockBufferCopyDataBytes(blockBuffer, atOffset: 0, dataLength: length, destination: baseAddress)
+            autoreleasepool {
+                if let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) {
+                    let length = CMBlockBufferGetDataLength(blockBuffer)
+                    var data = Data(count: length)
+                    data.withUnsafeMutableBytes { pointer in
+                        guard let baseAddress = pointer.baseAddress else { return }
+                        CMBlockBufferCopyDataBytes(blockBuffer, atOffset: 0, dataLength: length, destination: baseAddress)
+                    }
+                    data.withUnsafeBytes { buffer in
+                        let floatBuffer = buffer.bindMemory(to: Float.self)
+                        samples.append(contentsOf: floatBuffer)
+                    }
                 }
-                data.withUnsafeBytes { buffer in
-                    let floatBuffer = buffer.bindMemory(to: Float.self)
-                    samples.append(contentsOf: floatBuffer)
-                }
+                CMSampleBufferInvalidate(sampleBuffer)
             }
-            CMSampleBufferInvalidate(sampleBuffer)
         }
 
         guard reader.status == .completed else {
@@ -286,6 +214,87 @@ public final class MediaProcessingPipeline {
         return outputURL
     }
 
+    private func generateThumbnailSprite(from asset: AVAsset, durationSeconds: Double, frameInterval: Double) async throws -> URL {
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.requestedTimeToleranceBefore = .zero
+        generator.requestedTimeToleranceAfter = .zero
+
+        let safeInterval = max(frameInterval, 0.5)
+        let frameCount = max(1, Int(ceil(durationSeconds / safeInterval)))
+        var images: [CGImage] = []
+        images.reserveCapacity(frameCount)
+
+        if #available(iOS 18, *) {
+            for index in 0..<frameCount {
+                let seconds = min(Double(index) * safeInterval, durationSeconds)
+                let time = CMTime(seconds: seconds, preferredTimescale: 600)
+                let image = try await generateImageAsync(generator: generator, time: time)
+                images.append(image)
+            }
+            if images.isEmpty {
+                let fallback = try await generateImageAsync(generator: generator, time: .zero)
+                images.append(fallback)
+            }
+        } else {
+            for index in 0..<frameCount {
+                autoreleasepool {
+                    let seconds = min(Double(index) * safeInterval, durationSeconds)
+                    let time = CMTime(seconds: seconds, preferredTimescale: 600)
+                    if let image = try? generator.copyCGImage(at: time, actualTime: nil) {
+                        images.append(image)
+                    }
+                }
+            }
+            if images.isEmpty, let fallback = try? generator.copyCGImage(at: .zero, actualTime: nil) {
+                images.append(fallback)
+            }
+        }
+
+        guard let firstImage = images.first else {
+            throw NSError(domain: "MediaProcessingPipeline", code: -6, userInfo: [NSLocalizedDescriptionKey: "Unable to capture frames for sprite"])
+        }
+
+        let baseWidth = clampPositive(CGFloat(firstImage.width))
+        let baseHeight = clampPositive(CGFloat(firstImage.height))
+        let targetWidth = clampPositive(min(320, baseWidth))
+        let scale = safeDiv(targetWidth, baseWidth, fallback: 1)
+        let tileHeight = clampPositive(baseHeight * scale)
+        let tileSize = safeSize(targetWidth, tileHeight, fallback: CGSize(width: 1, height: 1))
+
+        let columns = max(min(4, images.count), 1)
+        let rows = max(Int(ceil(Double(images.count) / Double(columns))), 1)
+        let rendererSize = safeSize(tileSize.width * CGFloat(columns),
+                                    tileSize.height * CGFloat(rows),
+                                    fallback: CGSize(width: 1, height: 1))
+
+        guard rendererSize.width.isFinite, rendererSize.height.isFinite else {
+            throw NSError(domain: "MediaProcessingPipeline", code: -6, userInfo: [NSLocalizedDescriptionKey: "Sprite dimensions were invalid"])
+        }
+
+        let renderer = UIGraphicsImageRenderer(size: rendererSize, format: UIGraphicsImageRendererFormat.default())
+        let spriteImage = renderer.image { _ in
+            for (index, cgImage) in images.enumerated() {
+                autoreleasepool {
+                    let column = index % columns
+                    let row = index / columns
+                    let origin = CGPoint(x: CGFloat(column) * tileSize.width,
+                                         y: CGFloat(row) * tileSize.height)
+                    let rectSize = safeSize(tileSize.width, tileSize.height, fallback: CGSize(width: 1, height: 1))
+                    let rect = CGRect(origin: origin, size: rectSize)
+                    UIImage(cgImage: cgImage).draw(in: rect)
+                }
+            }
+        }
+
+        let outputURL = makeTemporaryURL(filename: "\(UUID().uuidString).png")
+        guard let data = spriteImage.pngData() else {
+            throw NSError(domain: "MediaProcessingPipeline", code: -7, userInfo: [NSLocalizedDescriptionKey: "Failed to encode sprite image"])
+        }
+        try data.write(to: outputURL, options: [.atomic])
+        return outputURL
+    }
+
     private func ensureTempDirectory() {
         if !fileManager.fileExists(atPath: tempDirectory.path) {
             try? fileManager.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
@@ -315,4 +324,3 @@ public final class MediaProcessingPipeline {
         }
     }
 }
-

@@ -15,7 +15,7 @@ struct TimelineEditorView: View {
     @State private var isScrubbing = false
     @State private var message: String?
     @State private var messageWorkItem: DispatchWorkItem?
-    @State private var player = AVPlayer()
+    @StateObject private var playbackCoordinator = VideoPlaybackCoordinator()
     @State private var isPlaying = false
     @State private var timeObserver: Any?
     @State private var showHelp = false
@@ -41,10 +41,37 @@ struct TimelineEditorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VideoPlayer(player: player)
-                .frame(height: 220)
-                .onAppear { configurePlayer() }
-                .onChange(of: draft.asset.proxyURL) { _, _ in configurePlayer() }
+            ZStack {
+                switch playbackCoordinator.state {
+                case .ready:
+                    if let player = playbackCoordinator.player {
+                        VideoPlayer(player: player)
+                    } else {
+                        Color.black.opacity(0.85)
+                        ProgressView().tint(.white)
+                    }
+                case .failed(let message):
+                    Color.black.opacity(0.85)
+                    VStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.title)
+                            .foregroundStyle(.white)
+                        Text(message)
+                            .multilineTextAlignment(.center)
+                            .font(.footnote)
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+                    .padding()
+                default:
+                    Color.black.opacity(0.85)
+                    ProgressView()
+                        .tint(.white)
+                }
+            }
+            .frame(height: 220)
+            .onAppear { configurePlayer() }
+            .onChange(of: draft.asset.proxyURL) { _, _ in configurePlayer() }
+            .onChange(of: draft.asset.uri) { _, _ in configurePlayer() }
 
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
@@ -54,6 +81,7 @@ struct TimelineEditorView: View {
                             .padding(.trailing, 6)
                     }
                     .buttonStyle(.plain)
+                    .disabled(playbackCoordinator.player == nil)
 
                     Slider(value: Binding(
                         get: { sliderValue },
@@ -72,7 +100,7 @@ struct TimelineEditorView: View {
                             isScrubbing = false
                         }
                     })
-                    .accentColor(.accentColor.opacity(0.7))
+                    .tint(Color.blue.opacity(0.7))
                 }
 
                 if !canAddSegment {
@@ -190,24 +218,17 @@ struct TimelineEditorView: View {
                 showHelp = true
             }
         }
-        .onDisappear {
-            // Clean up player resources
-            removeTimeObserver()
-            player.pause()
-            player.replaceCurrentItem(with: nil)
-        }
         .onChange(of: draft.playhead_s) { _, newValue in
             if !isScrubbing {
                 sliderValue = newValue
             }
         }
-        .onDisappear { autosaveNow() }
-        .onDisappear { messageWorkItem?.cancel() }
         .onDisappear {
-            player.pause()
-            isPlaying = false
+            autosaveNow()
+            messageWorkItem?.cancel()
             removeTimeObserver()
-            player.replaceCurrentItem(with: nil)
+            playbackCoordinator.teardown()
+            isPlaying = false
             finishAndClose()
         }
         .sheet(isPresented: $showHelp) {
@@ -216,7 +237,12 @@ struct TimelineEditorView: View {
     }
 
     private var maxDuration: TimeInterval {
-        max(draft.asset.duration, 0.1)
+        let assetDuration = draft.asset.duration
+        if assetDuration.isFinite, assetDuration > 0 {
+            return assetDuration
+        }
+        let segmentExtent = draft.segments.values.map { $0.end_s }.max() ?? 0
+        return max(segmentExtent, 0.1) // Minimum 0.1 to prevent 0...0 range
     }
 
     private var canAddSegment: Bool {
@@ -235,10 +261,9 @@ struct TimelineEditorView: View {
     }
 
     private func configurePlayer() {
-        // Clean up existing player state on main thread
         removeTimeObserver()
-        player.pause()
-        player.replaceCurrentItem(with: nil)
+        playbackCoordinator.teardown()
+        isPlaying = false
 
         // Determine playback URL
         let playbackURL: URL
@@ -251,57 +276,38 @@ struct TimelineEditorView: View {
         // Validate URL accessibility synchronously (fast check)
         guard FileManager.default.fileExists(atPath: playbackURL.path) else {
             print("❌ Video file not found at: \(playbackURL.path)")
+            showMessage("Video file missing at \(playbackURL.lastPathComponent)")
             return
         }
 
-        // Move asset creation to background thread to avoid blocking UI
-        Task.detached(priority: .userInitiated) {
-            // Create asset on background thread
-            let asset = AVURLAsset(url: playbackURL)
-
-            // Set up resource loader with proper error handling
-            let resourceLoaderQueue = DispatchQueue(label: "AssetLoader", qos: .userInitiated)
-            asset.resourceLoader.setDelegate(nil, queue: resourceLoaderQueue)
-
-            let item = AVPlayerItem(asset: asset)
-
-            // Switch back to main thread for player operations
-            await MainActor.run {
-                // Add error handling for the player item
-                NotificationCenter.default.addObserver(
-                    forName: .AVPlayerItemFailedToPlayToEndTime,
-                    object: item,
-                    queue: .main
-                ) { notification in
-                    if let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error {
-                        print("❌ Player item failed: \(error.localizedDescription)")
-                    }
-                }
-
-                // Replace current item and configure
-                self.player.replaceCurrentItem(with: item)
-
-                // Wait for item to be ready before seeking
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.seekPlayer(to: self.draft.playhead_s)
-                    self.addTimeObserver()
-                }
-            }
-        }
+        messageWorkItem?.cancel()
+        messageWorkItem = nil
+        message = "Loading video…"
+        playbackCoordinator.prepare(url: playbackURL, autoPlay: false, onReady: {
+            playbackCoordinator.player?.pause()
+            message = nil
+            addTimeObserver()
+            seekPlayer(to: draft.playhead_s)
+        }, onFailure: { error in
+            isPlaying = false
+            showMessage("Load failed: \(error.localizedDescription)")
+        })
     }
 
     private func seekPlayer(to time: TimeInterval) {
-        guard player.currentItem != nil else { return }
-        
-        let cmTime = CMTime(seconds: time, preferredTimescale: 600)
+        guard let player = playbackCoordinator.player, time.isFinite else { return }
+
+        let clampedTime = time.finiteOrZero
+        let cmTime = CMTime(seconds: clampedTime, preferredTimescale: 600)
         player.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero) { completed in
             if !completed {
-                print("❌ Seek operation failed for time: \(time)")
+                print("❌ Seek operation failed for time: \(clampedTime)")
             }
         }
     }
 
     private func togglePlayback() {
+        guard let player = playbackCoordinator.player else { return }
         if isPlaying {
             player.pause()
             isPlaying = false
@@ -312,6 +318,8 @@ struct TimelineEditorView: View {
     }
 
     private func addTimeObserver() {
+        guard let player = playbackCoordinator.player else { return }
+        removeTimeObserver()
         let interval = CMTime(seconds: 0.05, preferredTimescale: 600)
         timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { time in
             guard !isScrubbing else { return }
@@ -324,7 +332,7 @@ struct TimelineEditorView: View {
 
     private func removeTimeObserver() {
         if let observer = timeObserver {
-            player.removeTimeObserver(observer)
+            playbackCoordinator.player?.removeTimeObserver(observer)
             timeObserver = nil
         }
     }
@@ -553,18 +561,19 @@ struct TimelineEditorView: View {
     }
 
     private func snapValue(_ value: TimeInterval) -> TimeInterval {
+        let sanitizedValue = value.finiteOrZero
         let targets = snapTargets
-        guard !targets.isEmpty else { return value.clamped(to: 0...maxDuration) }
-        var best = value
+        guard !targets.isEmpty else { return sanitizedValue.clamped(to: 0...maxDuration) }
+        var best = sanitizedValue
         var bestDistance = snapThreshold
         for target in targets {
-            let distance = abs(target - value)
+            let distance = abs(target - sanitizedValue)
             if distance < bestDistance {
                 bestDistance = distance
                 best = target
             }
         }
-        if best != value { Haptics.shared.snap() }
+        if best != sanitizedValue { Haptics.shared.snap() }
         return best.clamped(to: 0...maxDuration)
     }
 
@@ -580,10 +589,10 @@ struct TimelineEditorView: View {
         }
         for id in draft.timeline.segmentOrder {
             if let segment = draft.segments[id] {
-                set.insert(segment.start_s)
-                set.insert(segment.end_s)
+                if segment.start_s.isFinite { set.insert(segment.start_s.finiteOrZero) }
+                if segment.end_s.isFinite { set.insert(segment.end_s.finiteOrZero) }
                 for marker in segment.markers {
-                    set.insert(marker.time_s)
+                    if marker.time_s.isFinite { set.insert(marker.time_s.finiteOrZero) }
                 }
             }
         }

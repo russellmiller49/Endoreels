@@ -39,7 +39,6 @@ struct CreatorView: View {
     @State private var isProcessingImport = false
     @State private var selectedTemplate: StoryboardTemplate = .demo
     @State private var selectedCasePreset: CasePreset = .demoPulmonary
-    @State private var showTimelineEditor = false
     @State private var timelineDraft: Draft?
 
     init(onClose: (() -> Void)? = nil) {
@@ -101,23 +100,13 @@ struct CreatorView: View {
                 assets: store.importedAssets
             )
         }
-        .fullScreenCover(isPresented: $showTimelineEditor, onDismiss: commitTimelineDraftIfNeeded) {
+        .fullScreenCover(item: $timelineDraft, onDismiss: commitTimelineDraftIfNeeded) { initialDraft in
             NavigationStack {
-                if let binding = timelineDraftBinding {
-                    TimelineEditorView(draft: binding) { updatedDraft in
-                        timelineDraft = updatedDraft
-                        showTimelineEditor = false
+                TimelineEditorView(draft: .constant(initialDraft)) { updatedDraft in
+                    timelineDraft = updatedDraft // Update with final version
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        timelineDraft = nil // Then dismiss (onDismiss will save)
                     }
-                } else {
-                    VStack(spacing: 16) {
-                        ProgressView()
-                        Text("Preparing draft…")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Button("Cancel") { showTimelineEditor = false }
-                            .buttonStyle(.bordered)
-                    }
-                    .padding()
                 }
             }
         }
@@ -406,18 +395,24 @@ struct CreatorView: View {
                         ProcessingStatusRow(title: "Proxy video", isReady: draft.asset.proxyURL != nil, icon: "film")
                         ProcessingStatusRow(title: "Thumbnail sprite", isReady: draft.asset.thumbnailSpriteURL != nil, icon: "photo.on.rectangle")
                         ProcessingStatusRow(title: "Waveform", isReady: draft.asset.waveformURL != nil, icon: "waveform")
+                        let timelineReady = draft.asset.proxyURL != nil && draft.asset.thumbnailSpriteURL != nil && draft.asset.waveformURL != nil && draft.asset.duration.isFinite && draft.asset.duration > 0
                         Button {
                             guard let draft = appState.activeDraft else { return }
+                            print("🎬 Opening timeline with duration: \(draft.asset.duration), playhead: \(draft.playhead_s)")
+                            print("🎬 Duration isFinite: \(draft.asset.duration.isFinite), duration > 0: \(draft.asset.duration > 0)")
+                            // Setting timelineDraft triggers .fullScreenCover(item:)
                             timelineDraft = draft
-                            Task { @MainActor in
-                                showTimelineEditor = true
-                            }
                         } label: {
                             Label("Open Timeline Editor", systemImage: "timeline.selection")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
-                        .disabled(appState.activeDraft == nil)
+                        .disabled(appState.activeDraft == nil || !timelineReady)
+                        if !timelineReady {
+                            Text("Manual editor unlocks once proxy, sprite, and waveform finish processing.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     .padding()
                     .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
@@ -859,6 +854,7 @@ private struct StepDraft: Identifiable {
     var mediaAssetIDs: [ImportedMediaAsset.ID]
     var audioAssetIDs: [ImportedMediaAsset.ID]
     var prefersAutoTranscript: Bool
+    var timelineRange: ClosedRange<Double>? = nil
 
     func duplicated(withOrder order: Int) -> StepDraft {
         StepDraft(
@@ -869,21 +865,22 @@ private struct StepDraft: Identifiable {
             overlays: overlays,
             mediaAssetIDs: mediaAssetIDs,
             audioAssetIDs: audioAssetIDs,
-            prefersAutoTranscript: prefersAutoTranscript
+            prefersAutoTranscript: prefersAutoTranscript,
+            timelineRange: timelineRange
         )
     }
 
     static let sample: [StepDraft] = [
-        StepDraft(order: 1, title: "Airway Inspection", focus: "Identify granulation tissue and stent margins.", captureType: .video, overlays: ["Arrow on obstruction", "Text: keep suction ready"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false),
-        StepDraft(order: 2, title: "Balloon Dilation", focus: "12mm balloon inflation with visual cues.", captureType: .video, overlays: ["Timer overlay", "Callout for pressure"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false),
-        StepDraft(order: 3, title: "Post-Procedure Review", focus: "Show restored lumen and mucosal perfusion.", captureType: .image, overlays: ["Before/after split"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false)
+        StepDraft(order: 1, title: "Airway Inspection", focus: "Identify granulation tissue and stent margins.", captureType: .video, overlays: ["Arrow on obstruction", "Text: keep suction ready"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, timelineRange: nil),
+        StepDraft(order: 2, title: "Balloon Dilation", focus: "12mm balloon inflation with visual cues.", captureType: .video, overlays: ["Timer overlay", "Callout for pressure"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, timelineRange: nil),
+        StepDraft(order: 3, title: "Post-Procedure Review", focus: "Show restored lumen and mucosal perfusion.", captureType: .image, overlays: ["Before/after split"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, timelineRange: nil)
     ]
 
     static let demoGastro: [StepDraft] = [
-        StepDraft(order: 1, title: "Lesion Inspection", focus: "Paris IIa+Is lesion with NICE type 2 pattern.", captureType: .video, overlays: ["NICE classification overlay", "Tattoo marker"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false),
-        StepDraft(order: 2, title: "Submucosal Lift", focus: "Orise gel injection elevated lesion without fibrosis.", captureType: .video, overlays: ["Injection plane arc", "Needle entry point"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false),
-        StepDraft(order: 3, title: "Cold Resection", focus: "Traction clip improved visualization; all pieces retrieved.", captureType: .video, overlays: ["Clip traction direction", "Specimen bucket"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false),
-        StepDraft(order: 4, title: "Defect Assessment", focus: "No bleeding; prophylactic clips placed.", captureType: .image, overlays: ["Closure pattern diagram"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false)
+        StepDraft(order: 1, title: "Lesion Inspection", focus: "Paris IIa+Is lesion with NICE type 2 pattern.", captureType: .video, overlays: ["NICE classification overlay", "Tattoo marker"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, timelineRange: nil),
+        StepDraft(order: 2, title: "Submucosal Lift", focus: "Orise gel injection elevated lesion without fibrosis.", captureType: .video, overlays: ["Injection plane arc", "Needle entry point"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, timelineRange: nil),
+        StepDraft(order: 3, title: "Cold Resection", focus: "Traction clip improved visualization; all pieces retrieved.", captureType: .video, overlays: ["Clip traction direction", "Specimen bucket"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, timelineRange: nil),
+        StepDraft(order: 4, title: "Defect Assessment", focus: "No bleeding; prophylactic clips placed.", captureType: .image, overlays: ["Closure pattern diagram"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, timelineRange: nil)
     ]
 }
 
@@ -922,6 +919,11 @@ private struct TimelineStepCard: View {
             Text(step.focus)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+            if let range = step.timelineRange {
+                Text("Clip \(formatTime(range.lowerBound)) – \(formatTime(range.upperBound))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             if let primaryAsset = linkedAssets.first {
                 MediaAssetPreview(asset: primaryAsset)
             }
@@ -976,6 +978,13 @@ private struct TimelineStepCard: View {
                 .stroke(isSelected ? Color.blue : Color.gray.opacity(0.15), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func formatTime(_ time: TimeInterval) -> String {
+        let minutes = Int(time) / 60
+        let seconds = Int(time) % 60
+        let fraction = Int((time - floor(time)) * 100)
+        return String(format: "%02d:%02d.%02d", minutes, seconds, fraction)
     }
 }
 
@@ -1200,7 +1209,7 @@ private struct MediaAssetPreview: View {
                     placeholder(height: 140)
                 }
             case .audio:
-                AudioPreviewWaveform(duration: asset.duration ?? 0)
+                AudioPreviewWaveform(duration: asset.duration.sanitizedNonNegative ?? 0)
                     .frame(height: 80)
                     .background(RoundedRectangle(cornerRadius: 12).fill(Color.blue.opacity(0.08)))
             }
@@ -1708,16 +1717,31 @@ private struct MediaPlaybackView: View {
     var height: CGFloat
     var fillsHorizontally: Bool = true
 
-    @State private var player: AVPlayer?
+    @StateObject private var playback = VideoPlaybackCoordinator()
+    @State private var errorMessage: String?
 
     var body: some View {
         ZStack {
             if asset.kind == .video {
                 Color.black.opacity(0.85)
-                if let player {
-                    VideoPlayer(player: player)
-                        .transition(.opacity)
-                } else {
+                switch playback.state {
+                case .ready:
+                    if let player = playback.player {
+                        VideoPlayer(player: player)
+                            .transition(.opacity)
+                    }
+                case .failed(let message):
+                    VStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.title)
+                            .foregroundStyle(.white)
+                        Text(errorMessage ?? message)
+                            .multilineTextAlignment(.center)
+                            .font(.footnote)
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+                    .padding()
+                default:
                     ProgressView()
                         .tint(.white)
                 }
@@ -1743,21 +1767,17 @@ private struct MediaPlaybackView: View {
                 .stroke(Color.gray.opacity(0.15), lineWidth: 1)
         )
         .onAppear {
-            guard asset.kind == .video, player == nil else { return }
-            
-            // Validate file exists before creating player
-            guard FileManager.default.fileExists(atPath: asset.url.path) else {
-                print("❌ Video file not found: \(asset.url.path)")
-                return
-            }
-            
-            player = AVPlayer(url: asset.url)
-            player?.seek(to: .zero)
+            guard asset.kind == .video else { return }
+            errorMessage = nil
+            playback.prepare(url: asset.url, autoPlay: false, onReady: {
+                playback.player?.pause()
+                playback.player?.seek(to: .zero)
+            }, onFailure: { error in
+                errorMessage = error.localizedDescription
+            })
         }
         .onDisappear {
-            player?.pause()
-            player?.replaceCurrentItem(with: nil)
-            player = nil
+            playback.teardown()
         }
     }
 }
@@ -1831,19 +1851,31 @@ private struct AssetIdentifier: Identifiable {
 }
 
 private extension CreatorView {
-    var timelineDraftBinding: Binding<Draft>? {
-        guard timelineDraft != nil else { return nil }
-        return Binding(
-            get: { timelineDraft! },
-            set: { timelineDraft = $0 }
-        )
-    }
-
     func commitTimelineDraftIfNeeded() {
-        if let updated = timelineDraft {
-            appState.activeDraft = updated
-        }
+        guard let updated = timelineDraft else { return }
+        appState.activeDraft = updated
         timelineDraft = nil
+
+        let segments = updated.timeline.segmentOrder.compactMap { updated.segments[$0] }
+        guard !segments.isEmpty else { return }
+
+        var newSteps: [StepDraft] = []
+        for (index, segment) in segments.enumerated() {
+            var step = StepDraft(
+                order: index + 1,
+                title: segment.label.isEmpty ? "Segment \(index + 1)" : segment.label,
+                focus: "",
+                captureType: .video,
+                overlays: [],
+                mediaAssetIDs: [segment.assetID],
+                audioAssetIDs: [],
+                prefersAutoTranscript: false
+            )
+            step.timelineRange = segment.start_s...segment.end_s
+            newSteps.append(step)
+        }
+        stepDrafts = newSteps
+        selectedStepID = stepDrafts.first?.id
     }
 }
 
