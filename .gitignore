@@ -55,6 +55,11 @@ Thumbs.db
 .env.test.local
 .env.production.local
 
-# Web demo build artifacts
-web-demo/node_modules/
-web-demo/dist/
+# DemoBuilder (Swift Package Manager)
+DemoBuilder/.build/
+DemoBuilder/Package.resolved
+
+# Xcode
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/

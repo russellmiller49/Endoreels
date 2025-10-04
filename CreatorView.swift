@@ -39,10 +39,6 @@ struct CreatorView: View {
     @State private var isProcessingImport = false
     @State private var selectedTemplate: StoryboardTemplate = .demo
     @State private var selectedCasePreset: CasePreset = .demoPulmonary
-    @State private var isProcessingEnhanced = false
-    @State private var aiSuggestions: [AIStepSuggestion] = []
-    @State private var aiProcessingError: String?
-    @State private var lastEnhancedAt: Date?
 
     init(onClose: (() -> Void)? = nil) {
         self.onClose = onClose
@@ -263,19 +259,6 @@ struct CreatorView: View {
         VStack(alignment: .leading, spacing: 16) {
             header("Storyboard Builder")
             VStack(alignment: .leading, spacing: 12) {
-                if let lastEnhancedAt {
-                    Label("Enhanced suggestions generated \(lastEnhancedAt, format: .relative(presentation: .named))", systemImage: "bolt.badge.clock")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if !aiSuggestions.isEmpty {
-                    AISuggestionReviewView(
-                        suggestions: aiSuggestions,
-                        onReplace: replaceWithAISuggestions,
-                        onAppend: appendAISuggestions,
-                        onDismiss: { aiSuggestions.removeAll() }
-                    )
-                }
                 ForEach(stepDrafts) { step in
                     let linkedAssets = step.mediaAssetIDs.compactMap { id in
                         store.importedAssets.first(where: { $0.id == id })
@@ -407,27 +390,6 @@ struct CreatorView: View {
                 Label("Feed visibility: Specialists in Pulmonology", systemImage: "rectangle.stack.badge.play")
                 Label("Collections: Airway Emergencies Sprint", systemImage: "bookmark.collection")
                 Label("Trust tier: Clinician (Blue)", systemImage: "checkmark.seal")
-                Button {
-                    runEnhancedProcessing()
-                } label: {
-                    HStack {
-                        if isProcessingEnhanced {
-                            ProgressView()
-                                .progressViewStyle(.circular)
-                        }
-                        Text(isProcessingEnhanced ? "Processing…" : "Process with AI (1 credit)")
-                        Image(systemName: "bolt.circle")
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.orange)
-                .disabled(isProcessingEnhanced)
-                if let aiProcessingError {
-                    Text(aiProcessingError)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
                 if let onClose {
                     Button(role: .destructive) {
                         onClose()
@@ -462,65 +424,6 @@ struct CreatorView: View {
             }
             .padding()
             .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
-        }
-    }
-
-    private func runEnhancedProcessing() {
-        guard !isProcessingEnhanced else { return }
-        guard appState.authSession != nil else {
-            aiProcessingError = "Sign in to use Enhanced processing."
-            NotificationCenter.default.post(name: .requestLoginPresentation, object: nil)
-            return
-        }
-        guard !store.importedAssets.isEmpty else {
-            aiProcessingError = "Import at least one media asset before running AI processing."
-            return
-        }
-        isProcessingEnhanced = true
-        aiProcessingError = nil
-
-        let assetsPayload = store.importedAssets.map { asset -> ProcessVideoPayload.Asset in
-            let kind: ProcessVideoPayload.Asset.Kind
-            switch asset.kind {
-            case .video: kind = .video
-            case .image: kind = .image
-            case .audio: kind = .audio
-            }
-            return ProcessVideoPayload.Asset(id: asset.id, filename: asset.filename, kind: kind)
-        }
-
-        let payload = ProcessVideoPayload(
-            title: title,
-            abstract: abstract,
-            serviceLine: serviceLine.displayName,
-            assets: assetsPayload
-        )
-
-        Task {
-            let client = APIClient()
-            do {
-                let response = try await client.send(ProcessVideoRequest(payload: payload))
-                let mapped = response.steps.enumerated().map { index, dto in
-                    AIStepSuggestion(
-                        title: dto.title,
-                        focus: dto.focus,
-                        captureType: StepDraft.CaptureType(rawValue: dto.captureType) ?? .video,
-                        overlays: dto.overlays,
-                        confidence: dto.confidence
-                    )
-                }
-                await MainActor.run {
-                    aiSuggestions = mapped
-                    lastEnhancedAt = Date()
-                    isProcessingEnhanced = false
-                }
-                try await appState.creditsStore.deductCredits(amount: 1, reelID: UUID(), reason: "Enhanced AI processing")
-            } catch {
-                await MainActor.run {
-                    aiProcessingError = error.localizedDescription
-                    isProcessingEnhanced = false
-                }
-            }
         }
     }
 
@@ -609,9 +512,6 @@ struct CreatorView: View {
 
     private func applyCasePreset(_ preset: CasePreset) {
         selectedCasePreset = preset
-        aiSuggestions.removeAll()
-        lastEnhancedAt = nil
-        aiProcessingError = nil
         switch preset {
         case .demoPulmonary:
             title = "Stent Rescue Run-through"
@@ -667,34 +567,6 @@ struct CreatorView: View {
         } else {
             selectedTemplate = .blank
         }
-    }
-
-    private func replaceWithAISuggestions() {
-        guard !aiSuggestions.isEmpty else { return }
-        stepDrafts = aiSuggestions.enumerated().map { index, suggestion in
-            let step = suggestion.makeStep(order: index + 1)
-            return step
-        }
-        selectedStepID = stepDrafts.first?.id
-        aiSuggestions.removeAll()
-        lastEnhancedAt = Date()
-        selectedTemplate = .demo
-    }
-
-    private func appendAISuggestions() {
-        guard !aiSuggestions.isEmpty else { return }
-        var current = stepDrafts
-        var nextOrder = (current.map { $0.order }.max() ?? 0) + 1
-        for suggestion in aiSuggestions {
-            let step = suggestion.makeStep(order: nextOrder)
-            current.append(step)
-            nextOrder += 1
-        }
-        stepDrafts = current
-        selectedStepID = stepDrafts.last?.id
-        aiSuggestions.removeAll()
-        lastEnhancedAt = Date()
-        selectedTemplate = .demo
     }
 
     private func header(_ title: String) -> some View {
@@ -940,82 +812,6 @@ private struct StepDraft: Identifiable {
         StepDraft(order: 3, title: "Cold Resection", focus: "Traction clip improved visualization; all pieces retrieved.", captureType: .video, overlays: ["Clip traction direction", "Specimen bucket"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false),
         StepDraft(order: 4, title: "Defect Assessment", focus: "No bleeding; prophylactic clips placed.", captureType: .image, overlays: ["Closure pattern diagram"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false)
     ]
-}
-
-private struct AISuggestionReviewView: View {
-    let suggestions: [AIStepSuggestion]
-    let onReplace: () -> Void
-    let onAppend: () -> Void
-    let onDismiss: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label("AI Suggestions Ready", systemImage: "sparkles")
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-                Button("Dismiss", action: onDismiss)
-                    .buttonStyle(.borderless)
-            }
-            Text("Review suggested framing, then choose to replace your storyboard or append the new steps.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(suggestions) { suggestion in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(suggestion.title)
-                                .font(.subheadline.weight(.semibold))
-                                .lineLimit(2)
-                            Text(suggestion.focus)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Text("Capture: \(suggestion.captureType.label)")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            if !suggestion.overlays.isEmpty {
-                                AnnotationChips(annotations: suggestion.overlays)
-                            }
-                        }
-                        .padding()
-                        .frame(width: 220, alignment: .leading)
-                        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
-                    }
-                }
-            }
-            HStack {
-                Button("Replace storyboard", action: onReplace)
-                    .buttonStyle(.borderedProminent)
-                Button("Append steps", action: onAppend)
-                    .buttonStyle(.bordered)
-            }
-            .font(.caption)
-        }
-        .padding()
-        .background(RoundedRectangle(cornerRadius: 16).stroke(Color.accentColor.opacity(0.3), lineWidth: 1))
-    }
-}
-
-private struct AIStepSuggestion: Identifiable {
-    let id = UUID()
-    let title: String
-    let focus: String
-    let captureType: StepDraft.CaptureType
-    let overlays: [String]
-    let confidence: Double
-
-    func makeStep(order: Int) -> StepDraft {
-        StepDraft(
-            order: order,
-            title: title,
-            focus: focus,
-            captureType: captureType,
-            overlays: overlays,
-            mediaAssetIDs: [],
-            audioAssetIDs: [],
-            prefersAutoTranscript: true
-        )
-    }
 }
 
 private struct TimelineStepCard: View {

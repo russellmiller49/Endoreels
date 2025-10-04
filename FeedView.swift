@@ -122,15 +122,6 @@ struct FeedView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
-                    if appState.authSession == nil {
-                        Button {
-                            showLoginPrompt()
-                        } label: {
-                            Label("Sign in for AI processing", systemImage: "person.crop.circle.badge.checkmark")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                    }
                 }
                 .padding(.vertical, 8)
             }
@@ -351,7 +342,7 @@ struct FeedView: View {
     }
 
     private func showLoginPrompt() {
-        NotificationCenter.default.post(name: .requestLoginPresentation, object: nil)
+        // Login removed in M0 - will be reimplemented in future milestone
     }
 
     private func toggleFilterChip(_ chip: FilterChip) {

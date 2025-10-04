@@ -15,8 +15,6 @@ struct ContentView: View {
     @State private var feedPath: [UUID] = []
     @State private var selectedReelID: UUID? = nil
     @State private var hasInitializedOnboarding = false
-    @State private var showLogin = false
-    private let loginPublisher = NotificationCenter.default.publisher(for: .requestLoginPresentation)
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -31,22 +29,14 @@ struct ContentView: View {
             OnboardingView()
                 .environmentObject(appState)
         }
-        .sheet(isPresented: $showLogin) {
-            LoginView()
-                .environmentObject(appState)
-        }
         .onAppear {
             if !hasInitializedOnboarding {
                 hasInitializedOnboarding = true
                 showOnboarding = !appState.onboardingCompleted
-                showLogin = appState.authSession == nil
             }
         }
         .onChange(of: appState.onboardingCompleted) { _, newValue in
             showOnboarding = !newValue
-        }
-        .onChange(of: appState.authSession == nil) { _, isNil in
-            showLogin = isNil
         }
         .onChange(of: appState.pendingNavigation) { _, action in
             guard let action else { return }
@@ -61,9 +51,6 @@ struct ContentView: View {
                 try? await Task.sleep(nanoseconds: 10_000_000)
                 selectedReelID = nil
             }
-        }
-        .onReceive(loginPublisher) { _ in
-            showLogin = true
         }
     }
 

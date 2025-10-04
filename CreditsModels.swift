@@ -31,8 +31,8 @@ struct CreditTransaction: Identifiable, Codable {
     }
 
     static let demoTransactions: [CreditTransaction] = [
-        CreditTransaction(reelID: UUID(), amount: -1, type: .debit, reason: "Enhanced AI process", occurredAt: Date().addingTimeInterval(-3600)),
-        CreditTransaction(reelID: UUID(), amount: 1, type: .refund, reason: "Processing failed", occurredAt: Date().addingTimeInterval(-7200)),
+        CreditTransaction(reelID: UUID(), amount: -1, type: .debit, reason: "PHI review", occurredAt: Date().addingTimeInterval(-3600)),
+        CreditTransaction(reelID: UUID(), amount: 1, type: .refund, reason: "Review refund", occurredAt: Date().addingTimeInterval(-7200)),
         CreditTransaction(amount: 5, type: .grant, reason: "Admin grant", occurredAt: Date().addingTimeInterval(-86400))
     ].sorted { $0.occurredAt > $1.occurredAt }
 }
