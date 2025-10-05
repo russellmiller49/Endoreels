@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCoreTests.build/master.swiftdeps"
+  },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Tests/EndoEditCoreTests/EndoEditCoreTests.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCoreTests.build/EndoEditCoreTests.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCoreTests.build/EndoEditCoreTests.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCoreTests.build/EndoEditCoreTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCoreTests.build/EndoEditCoreTests.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCoreTests.build/EndoEditCoreTests.dia"
+  }
+}

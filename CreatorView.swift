@@ -39,40 +39,15 @@ struct CreatorView: View {
     @State private var isProcessingImport = false
     @State private var selectedTemplate: StoryboardTemplate = .demo
     @State private var selectedCasePreset: CasePreset = .demoPulmonary
-    @State private var timelineDraft: Draft?
 
     init(onClose: (() -> Void)? = nil) {
         self.onClose = onClose
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                creditsBanner
-                presetSwitcher
-                caseOutline
-                templateSwitcher
-                storyboard
-                mediaLibrary
-                manualDraftPreview
-                privacyChecklist
-                publishingCard
-            }
-            .padding()
-        }
+        scrollContainer
         .navigationTitle("Creator Studio")
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                if let onClose {
-                    Button("Cancel") { onClose() }
-                }
-            }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                if let onClose {
-                    Button("Home") { onClose() }
-                }
-            }
-        }
+        .toolbar { creatorToolbar }
         .sheet(isPresented: $showPrivacyReport) {
             PrivacyReviewSheet()
                 .presentationDetents([.medium, .large])
@@ -100,16 +75,6 @@ struct CreatorView: View {
                 assets: store.importedAssets
             )
         }
-        .fullScreenCover(item: $timelineDraft, onDismiss: commitTimelineDraftIfNeeded) { initialDraft in
-            NavigationStack {
-                TimelineEditorView(draft: .constant(initialDraft)) { updatedDraft in
-                    timelineDraft = updatedDraft // Update with final version
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        timelineDraft = nil // Then dismiss (onDismiss will save)
-                    }
-                }
-            }
-        }
         .onChange(of: serviceLine, initial: false) { oldValue, newValue in
             let options = newValue.defaultProcedures
             if !options.contains(procedure) {
@@ -131,6 +96,16 @@ struct CreatorView: View {
             guard let newValue else { return }
             serviceLine = newValue
         }
+        .onChange(of: store.importedAssets) { _, newAssets in
+            if newAssets.isEmpty {
+                editingAssetIdentifier = nil
+            } else if let currentID = editingAssetIdentifier?.id,
+                      !newAssets.contains(where: { $0.id == currentID }) {
+                editingAssetIdentifier = AssetIdentifier(id: newAssets.first!.id)
+            } else if editingAssetIdentifier == nil, let first = newAssets.first {
+                editingAssetIdentifier = AssetIdentifier(id: first.id)
+            }
+        }
         .fileImporter(isPresented: $isImportingFiles, allowedContentTypes: [.movie, .image], allowsMultipleSelection: true) { result in
             switch result {
             case .success(let urls):
@@ -147,13 +122,6 @@ struct CreatorView: View {
         } message: {
             Text(importError ?? "")
         }
-        .sheet(item: $editingAssetIdentifier) { identifier in
-            if let index = store.importedAssets.firstIndex(where: { $0.id == identifier.id }) {
-                MediaAssetEditorView(asset: $store.importedAssets[index])
-            } else {
-                Text("Asset unavailable")
-            }
-        }
         .fullScreenCover(isPresented: $showOnboarding) {
             OnboardingView()
                 .environmentObject(appState)
@@ -167,7 +135,10 @@ struct CreatorView: View {
                         applyUpdatedStep(updated)
                         editingStepDraft = nil
                     },
-                    onCancel: { editingStepDraft = nil }
+                    onCancel: { editingStepDraft = nil },
+                    openMediaEditor: { assetID in
+                        openMediaEditor(for: assetID)
+                    }
                 )
             }
         }
@@ -231,6 +202,56 @@ struct CreatorView: View {
         }
         .padding()
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    @ViewBuilder
+    private var contentSections: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            creditsBanner
+            presetSwitcher
+            caseOutline
+            templateSwitcher
+            mediaLibrary
+            storyboard
+            privacyChecklist
+            publishingCard
+        }
+    }
+
+    private var scrollContainer: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                contentSections
+                    .padding()
+            }
+            .onChange(of: editingAssetIdentifier) { _, newValue in
+                guard newValue != nil else { return }
+                withAnimation {
+                    proxy.scrollTo(ScrollTarget.mediaEditor, anchor: .top)
+                }
+            }
+        }
+    }
+
+    private var creatorToolbar: some ToolbarContent {
+        ContentToolbar(onClose: onClose)
+    }
+
+    private struct ContentToolbar: ToolbarContent {
+        let onClose: (() -> Void)?
+
+        var body: some ToolbarContent {
+            ToolbarItemGroup(placement: .navigationBarLeading) {
+                if let onClose {
+                    Button("Cancel") { onClose() }
+                }
+            }
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                if let onClose {
+                    Button("Home") { onClose() }
+                }
+            }
+        }
     }
 
     private var creditsBanner: some View {
@@ -312,7 +333,30 @@ struct CreatorView: View {
     private var mediaLibrary: some View {
         VStack(alignment: .leading, spacing: 16) {
             header("Media Library")
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 16) {
+                if let identifier = editingAssetIdentifier,
+                   let index = store.importedAssets.firstIndex(where: { $0.id == identifier.id }) {
+                    MediaAssetEditorView(asset: $store.importedAssets[index], onClose: { editingAssetIdentifier = nil })
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color(.systemBackground))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.gray.opacity(0.15))
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                } else if !store.importedAssets.isEmpty {
+                    Text("Select a media item below to open it in the editor.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if editingAssetIdentifier != nil || !store.importedAssets.isEmpty {
+                    Divider()
+                }
+
                 PhotosPicker(selection: $photoSelections, maxSelectionCount: 6, matching: .any(of: [.images, .videos])) {
                     Label("Import from Photos", systemImage: "photo.on.rectangle.angled")
                         .frame(maxWidth: .infinity)
@@ -355,13 +399,13 @@ struct CreatorView: View {
                             canAttach: selectedStepID != nil,
                             isAttached: isAttached,
                             attachAction: { attachAsset(asset) },
-                            editAction: { editingAssetIdentifier = AssetIdentifier(id: asset.id) }
+                            editAction: { openMediaEditor(for: asset.id) }
                         )
                         .contextMenu {
                             let contextLabel = asset.kind == .audio ? (isAttached ? "Remove audio" : "Attach audio") : (isAttached ? "Remove from selected step" : "Attach to selected step")
                             Button(contextLabel, action: { attachAsset(asset) })
                                 .disabled(selectedStepID == nil)
-                            Button("Edit media", action: { editingAssetIdentifier = AssetIdentifier(id: asset.id) })
+                            Button("Edit media", action: { openMediaEditor(for: asset.id) })
                         }
                     }
                 }
@@ -369,56 +413,7 @@ struct CreatorView: View {
             .padding()
             .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
         }
-    }
-
-    private var manualDraftPreview: some View {
-        Group {
-            if let draft = appState.activeDraft {
-                VStack(alignment: .leading, spacing: 16) {
-                    header("Manual Edit Draft")
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(draft.timeline.title.isEmpty ? "Untitled Draft" : draft.timeline.title)
-                            .font(.subheadline.weight(.semibold))
-                        Text(draft.asset.uri.lastPathComponent)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        if let proxyURL = draft.asset.proxyURL {
-                            VideoPlayer(player: AVPlayer(url: proxyURL))
-                                .frame(height: 180)
-                                .cornerRadius(12)
-                        } else {
-                            ProgressView("Generating proxy…")
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-
-                        ProcessingStatusRow(title: "Proxy video", isReady: draft.asset.proxyURL != nil, icon: "film")
-                        ProcessingStatusRow(title: "Thumbnail sprite", isReady: draft.asset.thumbnailSpriteURL != nil, icon: "photo.on.rectangle")
-                        ProcessingStatusRow(title: "Waveform", isReady: draft.asset.waveformURL != nil, icon: "waveform")
-                        let timelineReady = draft.asset.proxyURL != nil && draft.asset.thumbnailSpriteURL != nil && draft.asset.waveformURL != nil && draft.asset.duration.isFinite && draft.asset.duration > 0
-                        Button {
-                            guard let draft = appState.activeDraft else { return }
-                            print("🎬 Opening timeline with duration: \(draft.asset.duration), playhead: \(draft.playhead_s)")
-                            print("🎬 Duration isFinite: \(draft.asset.duration.isFinite), duration > 0: \(draft.asset.duration > 0)")
-                            // Setting timelineDraft triggers .fullScreenCover(item:)
-                            timelineDraft = draft
-                        } label: {
-                            Label("Open Timeline Editor", systemImage: "timeline.selection")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(appState.activeDraft == nil || !timelineReady)
-                        if !timelineReady {
-                            Text("Manual editor unlocks once proxy, sprite, and waveform finish processing.")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding()
-                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
-                }
-            }
-        }
+        .id(ScrollTarget.mediaEditor)
     }
 
     private var privacyChecklist: some View {
@@ -639,6 +634,10 @@ struct CreatorView: View {
         }
     }
 
+    private func openMediaEditor(for assetID: ImportedMediaAsset.ID) {
+        editingAssetIdentifier = AssetIdentifier(id: assetID)
+    }
+
     private func attachAsset(_ asset: ImportedMediaAsset) {
         guard let selectedStepID, let index = stepDrafts.firstIndex(where: { $0.id == selectedStepID }) else { return }
         var updatedStep = stepDrafts[index]
@@ -659,15 +658,34 @@ struct CreatorView: View {
         case .video, .image:
             if let existingIndex = updatedStep.mediaAssetIDs.firstIndex(of: asset.id) {
                 updatedStep.mediaAssetIDs.remove(at: existingIndex)
+                if asset.kind == .video {
+                    updatedStep.videoEdits.removeValue(forKey: asset.id)
+                }
             } else {
                 if updatedStep.mediaAssetIDs.count >= 2 {
-                    updatedStep.mediaAssetIDs.removeFirst()
+                    let removedID = updatedStep.mediaAssetIDs.removeFirst()
+                    if let removed = store.importedAssets.first(where: { $0.id == removedID && $0.kind == .video }) {
+                        updatedStep.videoEdits.removeValue(forKey: removed.id)
+                    }
                 }
                 updatedStep.mediaAssetIDs.append(asset.id)
+                if asset.kind == .video {
+                    updatedStep.videoEdits[asset.id] = updatedStep.videoEdits[asset.id] ?? StepDraft.VideoEditing()
+                }
             }
 
             let attachedAssets = updatedStep.mediaAssetIDs.compactMap { id in
                 store.importedAssets.first(where: { $0.id == id })
+            }
+
+            if attachedAssets.contains(where: { $0.kind == .video }) {
+                for video in attachedAssets where video.kind == .video {
+                    if updatedStep.videoEdits[video.id] == nil {
+                        updatedStep.videoEdits[video.id] = StepDraft.VideoEditing()
+                    }
+                }
+            } else {
+                updatedStep.videoEdits = [:]
             }
 
             if attachedAssets.contains(where: { $0.kind == .video }) {
@@ -722,6 +740,7 @@ struct CreatorView: View {
                     await MainActor.run {
                         store.addImportedAsset(asset)
                         appState.prepareDraftForImportedVideo(asset, title: title, difficulty: difficulty, store: store)
+                        openMediaEditor(for: asset.id)
                     }
                 }
             } catch {
@@ -774,6 +793,7 @@ struct CreatorView: View {
                 await MainActor.run {
                     store.addImportedAsset(asset)
                     appState.prepareDraftForImportedVideo(asset, title: title, difficulty: difficulty, store: store)
+                    openMediaEditor(for: asset.id)
                 }
             } catch {
                 await MainActor.run { importError = error.localizedDescription }
@@ -787,6 +807,437 @@ struct CreatorView: View {
             try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         }
         return base.appendingPathComponent(filename)
+    }
+}
+
+private struct VideoAttachmentDetailEditor: View {
+    let asset: ImportedMediaAsset
+    @Binding var edit: StepDraft.VideoEditing
+    let maximumDuration: Double
+
+    @State private var showAnnotationSheet = false
+    @State private var selectedFreezeIndex: Int?
+    @State private var freezeSnapshots: [UUID: UIImage] = [:]
+    @State private var generatingSnapshotIDs: Set<UUID> = []
+
+    private var safeDuration: Double { max(maximumDuration, 30) }
+
+    var body: some View {
+        Form {
+            Section("Preview") {
+                MediaPlaybackView(asset: asset, height: 200, editing: edit)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                Text(cropDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Crop") {
+                Toggle("Enable crop", isOn: $edit.crop.isEnabled.animation())
+                if edit.crop.isEnabled {
+                    cropSliders
+                }
+            }
+
+            Section("Freeze Frames") {
+                if edit.freezeFrames.isEmpty {
+                    Text("No freeze frames yet.")
+                        .foregroundStyle(.secondary)
+                }
+
+                ForEach(Array(edit.freezeFrames.enumerated()), id: \.element.id) { index, _ in
+                    FreezeFrameRow(
+                        freeze: $edit.freezeFrames[index],
+                        maxDuration: safeDuration,
+                        onAnnotate: {
+                            selectFreeze(at: index)
+                        },
+                        onRemove: {
+                            let removed = edit.freezeFrames.remove(at: index)
+                            freezeSnapshots.removeValue(forKey: removed.id)
+                            generatingSnapshotIDs.remove(removed.id)
+                            if let current = selectedFreezeIndex {
+                                if current == index {
+                                    selectedFreezeIndex = nil
+                                } else if current > index {
+                                    selectedFreezeIndex = current - 1
+                                }
+                            }
+                        }
+                    )
+                }
+
+                Button {
+                    var newFrame = StepDraft.VideoEditing.FreezeFrame(
+                        time: min(2, safeDuration - 0.5),
+                        duration: min(2, safeDuration)
+                    )
+                    newFrame.clamp(maxDuration: safeDuration)
+                    edit.freezeFrames.append(newFrame)
+                    edit.freezeFrames.sort(by: { $0.time < $1.time })
+                    if let newIndex = edit.freezeFrames.firstIndex(where: { $0.id == newFrame.id }) {
+                        selectFreeze(at: newIndex, autoPresent: false)
+                    }
+                } label: {
+                    Label("Add Freeze Frame", systemImage: "snowflake")
+                }
+            }
+        }
+        .navigationTitle(asset.filename)
+        .onAppear { edit.crop.clamp() }
+        .sheet(isPresented: $showAnnotationSheet, onDismiss: { selectedFreezeIndex = nil }) {
+            NavigationStack {
+                if let annotationBinding = annotationBindingForSelected(),
+                   let freeze = selectedFreezeIndex.flatMap({ edit.freezeFrames.indices.contains($0) ? edit.freezeFrames[$0] : nil }) {
+                    AnnotationDrawingCanvas(
+                        annotation: annotationBinding,
+                        background: freezeSnapshots[freeze.id]
+                    )
+                        .navigationTitle("Annotate Frame")
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Done") { showAnnotationSheet = false }
+                            }
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Clear") { annotationBinding.wrappedValue.strokes.removeAll() }
+                            }
+                        }
+                } else {
+                    Text("Select a freeze frame to annotate")
+                        .padding()
+                        .navigationTitle("Annotate Frame")
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Close") { showAnnotationSheet = false }
+                            }
+                        }
+                }
+            }
+        }
+        .onChange(of: edit.crop) { _, _ in
+            freezeSnapshots.removeAll()
+            generatingSnapshotIDs.removeAll()
+            if let index = selectedFreezeIndex,
+               edit.freezeFrames.indices.contains(index) {
+                let freeze = edit.freezeFrames[index]
+                ensureSnapshot(for: freeze, force: true)
+            }
+        }
+        .onChange(of: edit.freezeFrames) { _, newValue in
+            let ids = Set(newValue.map(\.id))
+            freezeSnapshots = freezeSnapshots.filter { ids.contains($0.key) }
+            generatingSnapshotIDs = Set(generatingSnapshotIDs.filter { ids.contains($0) })
+            if let index = selectedFreezeIndex, !newValue.indices.contains(index) {
+                selectedFreezeIndex = nil
+            }
+        }
+    }
+
+    private var cropSliders: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading) {
+                Text("Width: \(edit.crop.width, format: .percent.precision(.fractionLength(0)))")
+                    .font(.caption)
+                Slider(
+                    value: Binding(
+                        get: { edit.crop.width },
+                        set: { newValue in
+                            edit.crop.width = newValue
+                            edit.crop.clamp()
+                        }
+                    ),
+                    in: 0.2...1
+                )
+            }
+
+            VStack(alignment: .leading) {
+                Text("Height: \(edit.crop.height, format: .percent.precision(.fractionLength(0)))")
+                    .font(.caption)
+                Slider(
+                    value: Binding(
+                        get: { edit.crop.height },
+                        set: { newValue in
+                            edit.crop.height = newValue
+                            edit.crop.clamp()
+                        }
+                    ),
+                    in: 0.2...1
+                )
+            }
+
+            VStack(alignment: .leading) {
+                Text("Horizontal offset")
+                    .font(.caption)
+                Slider(
+                    value: Binding(
+                        get: { edit.crop.originX },
+                        set: { newValue in
+                            edit.crop.originX = newValue
+                            edit.crop.clamp()
+                        }
+                    ),
+                    in: 0...(1 - edit.crop.width)
+                )
+            }
+
+            VStack(alignment: .leading) {
+                Text("Vertical offset")
+                    .font(.caption)
+                Slider(
+                    value: Binding(
+                        get: { edit.crop.originY },
+                        set: { newValue in
+                            edit.crop.originY = newValue
+                            edit.crop.clamp()
+                        }
+                    ),
+                    in: 0...(1 - edit.crop.height)
+                )
+            }
+        }
+    }
+
+    private var cropDescription: String {
+        guard edit.crop.isEnabled else { return "Cropping disabled" }
+        return "Crop area: x \(Int(edit.crop.originX * 100))%, y \(Int(edit.crop.originY * 100))%, width \(Int(edit.crop.width * 100))%, height \(Int(edit.crop.height * 100))%"
+    }
+
+    private func annotationBindingForSelected() -> Binding<StepDraft.VideoEditing.FrameAnnotation>? {
+        guard let index = selectedFreezeIndex,
+              edit.freezeFrames.indices.contains(index) else { return nil }
+        return Binding(
+            get: { edit.freezeFrames[index].annotation },
+            set: { edit.freezeFrames[index].annotation = $0 }
+        )
+    }
+
+    private func selectFreeze(at index: Int, autoPresent: Bool = true) {
+        guard edit.freezeFrames.indices.contains(index) else { return }
+        selectedFreezeIndex = index
+        let freeze = edit.freezeFrames[index]
+        ensureSnapshot(for: freeze, force: true)
+        if autoPresent {
+            showAnnotationSheet = true
+        }
+    }
+
+    private func ensureSnapshot(for freeze: StepDraft.VideoEditing.FreezeFrame, force: Bool) {
+        if !force, freezeSnapshots[freeze.id] != nil { return }
+        if generatingSnapshotIDs.contains(freeze.id) { return }
+        generatingSnapshotIDs.insert(freeze.id)
+        let cropSetting = edit.crop.isEnabled ? edit.crop : nil
+        let url = asset.url
+        Task.detached(priority: .userInitiated) {
+            let image = await captureFreezeFrameImage(url: url, time: freeze.time, crop: cropSetting)
+            await MainActor.run {
+                generatingSnapshotIDs.remove(freeze.id)
+                if let image {
+                    freezeSnapshots[freeze.id] = image
+                } else {
+                    freezeSnapshots.removeValue(forKey: freeze.id)
+                }
+            }
+        }
+    }
+}
+
+private struct FreezeFrameRow: View {
+    @Binding var freeze: StepDraft.VideoEditing.FreezeFrame
+    let maxDuration: Double
+    let onAnnotate: () -> Void
+    let onRemove: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Start: \(freeze.time, format: .number.precision(.fractionLength(1))) s")
+                Spacer()
+                Text("Duration: \(freeze.duration, format: .number.precision(.fractionLength(1))) s")
+            }
+            .font(.caption)
+
+            Slider(
+                value: Binding(
+                    get: { freeze.time },
+                    set: { newValue in
+                        freeze.time = newValue
+                        freeze.clamp(maxDuration: maxDuration)
+                    }
+                ),
+                in: 0...maxDuration,
+                step: 0.1
+            )
+
+            let durationUpperBound = max(0.1, maxDuration - freeze.time)
+            Slider(
+                value: Binding(
+                    get: { freeze.duration },
+                    set: { newValue in
+                        freeze.duration = newValue
+                        freeze.clamp(maxDuration: maxDuration)
+                    }
+                ),
+                in: 0.1...durationUpperBound,
+                step: 0.1
+            )
+
+            HStack {
+                Button(action: onAnnotate) {
+                    Label("Annotate", systemImage: "pencil.and.outline")
+                }
+                Spacer()
+                Button(role: .destructive, action: onRemove) {
+                    Label("Remove", systemImage: "trash")
+                }
+            }
+            .font(.caption)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct CropOverlay: View {
+    let crop: StepDraft.VideoEditing.Crop
+
+    var body: some View {
+        GeometryReader { proxy in
+            if crop.isEnabled {
+                let rect = CGRect(
+                    x: crop.originX * proxy.size.width,
+                    y: crop.originY * proxy.size.height,
+                    width: crop.width * proxy.size.width,
+                    height: crop.height * proxy.size.height
+                )
+                Path { path in
+                    path.addRect(rect)
+                }
+                .stroke(Color.yellow, style: StrokeStyle(lineWidth: 2, dash: [6]))
+            }
+        }
+    }
+}
+
+private struct AnnotationDrawingCanvas: View {
+    @Binding var annotation: StepDraft.VideoEditing.FrameAnnotation
+    let background: UIImage?
+    @Environment(\.dismiss) private var dismiss
+    @State private var currentStroke: StepDraft.VideoEditing.AnnotationStroke?
+    @State private var selectedColor: StepDraft.VideoEditing.AnnotationColor = .red
+    @State private var lineWidth: Double = 4
+
+    var body: some View {
+        VStack(spacing: 16) {
+            colorPalette
+            Text("Drag to draw annotations on this freeze frame.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            GeometryReader { proxy in
+                ZStack {
+                    if let bg = background {
+                        Image(uiImage: bg)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                            .clipped()
+                    } else {
+                        Color.black.opacity(0.85)
+                    }
+                    Canvas { context, size in
+                        for stroke in annotation.strokes {
+                            draw(stroke: stroke, in: &context, size: size)
+                        }
+                        if let stroke = currentStroke {
+                            draw(stroke: stroke, in: &context, size: size)
+                        }
+                    }
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                let normalized = normalizedPoint(value.location, in: proxy.size)
+                                if currentStroke == nil {
+                                    var stroke = StepDraft.VideoEditing.AnnotationStroke()
+                                    stroke.colorName = selectedColor
+                                    stroke.lineWidth = lineWidth
+                                    stroke.points = [normalized]
+                                    currentStroke = stroke
+                                } else {
+                                    currentStroke?.points.append(normalized)
+                                }
+                            }
+                            .onEnded { _ in
+                                if var stroke = currentStroke, stroke.points.count > 1 {
+                                    stroke.lineWidth = lineWidth
+                                    annotation.strokes.append(stroke)
+                                }
+                                currentStroke = nil
+                            }
+                    )
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            }
+            .frame(height: 280)
+
+            VStack(alignment: .leading) {
+                Text("Line width: \(lineWidth, format: .number.precision(.fractionLength(0)))")
+                    .font(.caption)
+                Slider(value: $lineWidth, in: 2...20)
+            }
+
+            HStack {
+                Button("Undo Stroke") {
+                    _ = annotation.strokes.popLast()
+                }
+                .disabled(annotation.strokes.isEmpty)
+
+                Button("Clear All", role: .destructive) {
+                    annotation.strokes.removeAll()
+                }
+                Spacer()
+                Button("Done") {
+                    dismiss()
+                }
+            }
+            .font(.caption)
+        }
+        .padding()
+    }
+
+    private var colorPalette: some View {
+        HStack {
+            ForEach(StepDraft.VideoEditing.AnnotationColor.allCases) { color in
+                Circle()
+                    .fill(color.color)
+                    .frame(width: 28, height: 28)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white, lineWidth: selectedColor == color ? 3 : 1)
+                    )
+                    .onTapGesture { selectedColor = color }
+            }
+        }
+    }
+
+    private func normalizedPoint(_ point: CGPoint, in size: CGSize) -> CGPoint {
+        guard size.width > 0, size.height > 0 else { return .zero }
+        let x = max(0, min(1, point.x / size.width))
+        let y = max(0, min(1, point.y / size.height))
+        return CGPoint(x: x, y: y)
+    }
+
+    private func draw(stroke: StepDraft.VideoEditing.AnnotationStroke, in context: inout GraphicsContext, size: CGSize) {
+        guard stroke.points.count > 1 else { return }
+        var path = Path()
+        let first = stroke.points[0]
+        path.move(to: CGPoint(x: first.x * size.width, y: first.y * size.height))
+        for point in stroke.points.dropFirst() {
+            path.addLine(to: CGPoint(x: point.x * size.width, y: point.y * size.height))
+        }
+        context.stroke(
+            path,
+            with: .color(stroke.colorName.color),
+            lineWidth: stroke.lineWidth
+        )
     }
 }
 
@@ -854,7 +1305,7 @@ private struct StepDraft: Identifiable {
     var mediaAssetIDs: [ImportedMediaAsset.ID]
     var audioAssetIDs: [ImportedMediaAsset.ID]
     var prefersAutoTranscript: Bool
-    var timelineRange: ClosedRange<Double>? = nil
+    var videoEdits: [ImportedMediaAsset.ID: VideoEditing] = [:]
 
     func duplicated(withOrder order: Int) -> StepDraft {
         StepDraft(
@@ -866,22 +1317,93 @@ private struct StepDraft: Identifiable {
             mediaAssetIDs: mediaAssetIDs,
             audioAssetIDs: audioAssetIDs,
             prefersAutoTranscript: prefersAutoTranscript,
-            timelineRange: timelineRange
+            videoEdits: videoEdits
         )
     }
 
     static let sample: [StepDraft] = [
-        StepDraft(order: 1, title: "Airway Inspection", focus: "Identify granulation tissue and stent margins.", captureType: .video, overlays: ["Arrow on obstruction", "Text: keep suction ready"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, timelineRange: nil),
-        StepDraft(order: 2, title: "Balloon Dilation", focus: "12mm balloon inflation with visual cues.", captureType: .video, overlays: ["Timer overlay", "Callout for pressure"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, timelineRange: nil),
-        StepDraft(order: 3, title: "Post-Procedure Review", focus: "Show restored lumen and mucosal perfusion.", captureType: .image, overlays: ["Before/after split"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, timelineRange: nil)
+        StepDraft(order: 1, title: "Airway Inspection", focus: "Identify granulation tissue and stent margins.", captureType: .video, overlays: ["Arrow on obstruction", "Text: keep suction ready"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, videoEdits: [:]),
+        StepDraft(order: 2, title: "Balloon Dilation", focus: "12mm balloon inflation with visual cues.", captureType: .video, overlays: ["Timer overlay", "Callout for pressure"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, videoEdits: [:]),
+        StepDraft(order: 3, title: "Post-Procedure Review", focus: "Show restored lumen and mucosal perfusion.", captureType: .image, overlays: ["Before/after split"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, videoEdits: [:])
     ]
 
     static let demoGastro: [StepDraft] = [
-        StepDraft(order: 1, title: "Lesion Inspection", focus: "Paris IIa+Is lesion with NICE type 2 pattern.", captureType: .video, overlays: ["NICE classification overlay", "Tattoo marker"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, timelineRange: nil),
-        StepDraft(order: 2, title: "Submucosal Lift", focus: "Orise gel injection elevated lesion without fibrosis.", captureType: .video, overlays: ["Injection plane arc", "Needle entry point"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, timelineRange: nil),
-        StepDraft(order: 3, title: "Cold Resection", focus: "Traction clip improved visualization; all pieces retrieved.", captureType: .video, overlays: ["Clip traction direction", "Specimen bucket"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, timelineRange: nil),
-        StepDraft(order: 4, title: "Defect Assessment", focus: "No bleeding; prophylactic clips placed.", captureType: .image, overlays: ["Closure pattern diagram"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, timelineRange: nil)
+        StepDraft(order: 1, title: "Lesion Inspection", focus: "Paris IIa+Is lesion with NICE type 2 pattern.", captureType: .video, overlays: ["NICE classification overlay", "Tattoo marker"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, videoEdits: [:]),
+        StepDraft(order: 2, title: "Submucosal Lift", focus: "Orise gel injection elevated lesion without fibrosis.", captureType: .video, overlays: ["Injection plane arc", "Needle entry point"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, videoEdits: [:]),
+        StepDraft(order: 3, title: "Cold Resection", focus: "Traction clip improved visualization; all pieces retrieved.", captureType: .video, overlays: ["Clip traction direction", "Specimen bucket"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, videoEdits: [:]),
+        StepDraft(order: 4, title: "Defect Assessment", focus: "No bleeding; prophylactic clips placed.", captureType: .image, overlays: ["Closure pattern diagram"], mediaAssetIDs: [], audioAssetIDs: [], prefersAutoTranscript: false, videoEdits: [:])
     ]
+
+    struct VideoEditing: Equatable {
+        struct Crop: Equatable {
+            var isEnabled: Bool = false
+            var originX: Double = 0
+            var originY: Double = 0
+            var width: Double = 1
+            var height: Double = 1
+
+            mutating func clamp() {
+                width = min(max(width, 0.1), 1)
+                height = min(max(height, 0.1), 1)
+                originX = min(max(originX, 0), 1 - width)
+                originY = min(max(originY, 0), 1 - height)
+            }
+        }
+
+        struct AnnotationStroke: Identifiable, Equatable {
+            var id = UUID()
+            var points: [CGPoint] = [] // normalized 0…1
+            var colorName: AnnotationColor = .red
+            var lineWidth: Double = 4
+        }
+
+        struct FrameAnnotation: Equatable {
+            var strokes: [AnnotationStroke] = []
+        }
+
+        struct FreezeFrame: Identifiable, Equatable {
+            var id = UUID()
+            var time: Double
+            var duration: Double
+            var annotation: FrameAnnotation = FrameAnnotation()
+
+            mutating func clamp(maxDuration: Double) {
+                time = min(max(time, 0), maxDuration)
+                duration = min(max(duration, 0.1), maxDuration - time)
+            }
+        }
+
+        enum AnnotationColor: String, CaseIterable, Identifiable {
+            case red
+            case orange
+            case yellow
+            case green
+            case cyan
+            case blue
+            case purple
+            case white
+
+            var id: String { rawValue }
+
+            var color: Color {
+                switch self {
+                case .red: return .red
+                case .orange: return .orange
+                case .yellow: return .yellow
+                case .green: return .green
+                case .cyan: return .cyan
+                case .blue: return .blue
+                case .purple: return .purple
+                case .white: return .white
+                }
+            }
+        }
+
+        var crop: Crop = Crop()
+        var freezeFrames: [FreezeFrame] = []
+
+        static func color(for name: AnnotationColor) -> Color { name.color }
+    }
 }
 
 private struct TimelineStepCard: View {
@@ -919,13 +1441,13 @@ private struct TimelineStepCard: View {
             Text(step.focus)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            if let range = step.timelineRange {
-                Text("Clip \(formatTime(range.lowerBound)) – \(formatTime(range.upperBound))")
+            if let summary = videoEditSummary {
+                Text(summary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             if let primaryAsset = linkedAssets.first {
-                MediaAssetPreview(asset: primaryAsset)
+                MediaAssetPreview(asset: primaryAsset, videoEdit: step.videoEdits[primaryAsset.id])
             }
             if linkedAssets.count > 1 {
                 VStack(alignment: .leading, spacing: 6) {
@@ -986,6 +1508,20 @@ private struct TimelineStepCard: View {
         let fraction = Int((time - floor(time)) * 100)
         return String(format: "%02d:%02d.%02d", minutes, seconds, fraction)
     }
+
+    private var videoEditSummary: String? {
+        let edits = step.videoEdits.values
+        guard !edits.isEmpty else { return nil }
+        var parts: [String] = []
+        if edits.contains(where: { $0.crop.isEnabled }) {
+            parts.append("Crop enabled")
+        }
+        let freezeCount = edits.reduce(0) { $0 + $1.freezeFrames.count }
+        if freezeCount > 0 {
+            parts.append("\(freezeCount) freeze frame" + (freezeCount == 1 ? "" : "s"))
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " • ")
+    }
 }
 
 private struct StepEditorSheet: View {
@@ -994,14 +1530,20 @@ private struct StepEditorSheet: View {
     let availableAssets: [ImportedMediaAsset]
     let onSave: (StepDraft) -> Void
     let onCancel: () -> Void
+    let openMediaEditor: (ImportedMediaAsset.ID) -> Void
 
     @Environment(\.dismiss) private var dismiss
 
-    init(step: StepDraft, availableAssets: [ImportedMediaAsset], onSave: @escaping (StepDraft) -> Void, onCancel: @escaping () -> Void) {
+    init(step: StepDraft,
+         availableAssets: [ImportedMediaAsset],
+         onSave: @escaping (StepDraft) -> Void,
+         onCancel: @escaping () -> Void,
+         openMediaEditor: @escaping (ImportedMediaAsset.ID) -> Void) {
         _workingStep = State(initialValue: step)
         self.availableAssets = availableAssets
         self.onSave = onSave
         self.onCancel = onCancel
+        self.openMediaEditor = openMediaEditor
     }
 
     var body: some View {
@@ -1059,6 +1601,14 @@ private struct StepEditorSheet: View {
                 }
             }
 
+            if !videoAttachments.isEmpty {
+                Section("Video Enhancements") {
+                    ForEach(videoAttachments, id: \.id) { asset in
+                        videoEnhancementRow(for: asset)
+                    }
+                }
+            }
+
             if !audioAttachments.isEmpty {
                 Section("Audio Overlays") {
                     Toggle("Generate transcript automatically", isOn: $workingStep.prefersAutoTranscript)
@@ -1099,6 +1649,46 @@ private struct StepEditorSheet: View {
         }
     }
 
+    private var videoAttachments: [ImportedMediaAsset] {
+        visualAttachments.filter { $0.kind == .video }
+    }
+
+    private func videoEditSummary(for edit: StepDraft.VideoEditing) -> String {
+        var parts: [String] = []
+        if edit.crop.isEnabled {
+            parts.append("Crop enabled")
+        }
+        let freezeCount = edit.freezeFrames.count
+        if freezeCount > 0 {
+            parts.append("\(freezeCount) freeze frame" + (freezeCount == 1 ? "" : "s"))
+        }
+        return parts.isEmpty ? "No adjustments yet" : parts.joined(separator: " • ")
+    }
+
+    private func videoEnhancementRow(for asset: ImportedMediaAsset) -> some View {
+        if workingStep.videoEdits[asset.id] == nil {
+            workingStep.videoEdits[asset.id] = StepDraft.VideoEditing()
+        }
+        let binding = Binding(
+            get: { workingStep.videoEdits[asset.id] ?? StepDraft.VideoEditing() },
+            set: { workingStep.videoEdits[asset.id] = $0 }
+        )
+        let summary = videoEditSummary(for: binding.wrappedValue)
+
+        return VStack(alignment: .leading, spacing: 8) {
+            VideoAttachmentSummaryRow(asset: asset, summary: summary)
+            Button {
+                onSave(workingStep)
+                openMediaEditor(asset.id)
+                dismiss()
+            } label: {
+                Label("Open Media Editor", systemImage: "slider.horizontal.3")
+            }
+            .buttonStyle(.bordered)
+            .font(.caption)
+        }
+    }
+
     private struct AttachmentRow: View {
         let asset: ImportedMediaAsset
         let onRemove: () -> Void
@@ -1119,6 +1709,21 @@ private struct StepEditorSheet: View {
             case .image: return "photo"
             case .audio: return "speaker.wave.2.fill"
             }
+        }
+    }
+}
+
+private struct VideoAttachmentSummaryRow: View {
+    let asset: ImportedMediaAsset
+    let summary: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label(asset.filename, systemImage: "slider.horizontal.3")
+                .font(.subheadline)
+            Text(summary)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -1165,6 +1770,7 @@ private struct AudioAttachmentSummary: View {
 
 private struct MediaAssetPreview: View {
     let asset: ImportedMediaAsset
+    var videoEdit: StepDraft.VideoEditing? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1183,7 +1789,9 @@ private struct MediaAssetPreview: View {
 
             switch asset.kind {
             case .video:
-                if let proxy = asset.proxyURL {
+                if let edit = videoEdit {
+                    MediaPlaybackView(asset: asset, height: 160, editing: edit)
+                } else if let proxy = asset.proxyURL {
                     VideoPlayer(player: AVPlayer(url: proxy))
                         .frame(height: 160)
                         .cornerRadius(12)
@@ -1662,9 +2270,14 @@ private struct PreviewStepCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
         } else if assets.count == 1, let primary = assets.first {
-            MediaPlaybackView(asset: primary, height: 200)
+            MediaPlaybackView(asset: primary, height: 200, editing: step.videoEdits[primary.id])
         } else if assets.count >= 2 {
-            PictureInPicturePreview(primary: assets[0], secondary: assets[1])
+            PictureInPicturePreview(
+                primary: assets[0],
+                secondary: assets[1],
+                primaryEdit: step.videoEdits[assets[0].id],
+                secondaryEdit: step.videoEdits[assets[1].id]
+            )
         }
 
         if !assets.isEmpty {
@@ -1716,35 +2329,21 @@ private struct MediaPlaybackView: View {
     let asset: ImportedMediaAsset
     var height: CGFloat
     var fillsHorizontally: Bool = true
+    var editing: StepDraft.VideoEditing? = nil
 
     @StateObject private var playback = VideoPlaybackCoordinator()
     @State private var errorMessage: String?
+    @State private var freezeOverlay: UIImage?
+    @State private var activeFreezeID: UUID?
+    @State private var completedFreezeIDs: Set<UUID> = []
+    @State private var freezeSnapshots: [UUID: UIImage] = [:]
+    @State private var freezeResumeWorkItem: DispatchWorkItem?
+    @State private var timeObserver: Any?
 
     var body: some View {
         ZStack {
             if asset.kind == .video {
-                Color.black.opacity(0.85)
-                switch playback.state {
-                case .ready:
-                    if let player = playback.player {
-                        VideoPlayer(player: player)
-                            .transition(.opacity)
-                    }
-                case .failed(let message):
-                    VStack(spacing: 8) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.title)
-                            .foregroundStyle(.white)
-                        Text(errorMessage ?? message)
-                            .multilineTextAlignment(.center)
-                            .font(.footnote)
-                            .foregroundStyle(.white.opacity(0.9))
-                    }
-                    .padding()
-                default:
-                    ProgressView()
-                        .tint(.white)
-                }
+                videoBody
             } else if let image = asset.editedImage ?? asset.thumbnail {
                 Image(uiImage: image)
                     .resizable()
@@ -1753,7 +2352,7 @@ private struct MediaPlaybackView: View {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.gray.opacity(0.1))
                     .overlay {
-                        Image(systemName: asset.kind == .video ? "play.rectangle" : "photo")
+                        Image(systemName: asset.kind == .audio ? "waveform" : "photo")
                             .font(.largeTitle)
                             .foregroundStyle(.gray)
                     }
@@ -1766,30 +2365,232 @@ private struct MediaPlaybackView: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.gray.opacity(0.15), lineWidth: 1)
         )
-        .onAppear {
-            guard asset.kind == .video else { return }
-            errorMessage = nil
-            playback.prepare(url: asset.url, autoPlay: false, onReady: {
-                playback.player?.pause()
-                playback.player?.seek(to: .zero)
-            }, onFailure: { error in
-                errorMessage = error.localizedDescription
-            })
+        .onAppear { preparePlayback() }
+        .onDisappear { teardown() }
+        .onChange(of: asset.id) { _, _ in
+            teardown()
+            preparePlayback()
         }
-        .onDisappear {
-            playback.teardown()
+        .onChange(of: editing?.crop) { _, _ in
+            freezeSnapshots = [:]
         }
+        .onChange(of: editing?.freezeFrames ?? []) { _, _ in
+            resetFreezeState()
+            preloadFreezeSnapshots()
+        }
+    }
+
+    private var videoBody: some View {
+        GeometryReader { proxy in
+            ZStack {
+                Color.black.opacity(0.85)
+                switch playback.state {
+                case .ready:
+                    if let player = playback.player {
+                        croppedPlayerView(player: player, size: proxy.size)
+                            .transition(.opacity)
+                    }
+                case .failed(let message):
+                    errorView(message: message)
+                default:
+                    ProgressView()
+                        .tint(.white)
+                }
+
+                if let overlay = freezeOverlay {
+                    Image(uiImage: overlay)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .clipped()
+                        .transition(.opacity)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func croppedPlayerView(player: AVPlayer, size: CGSize) -> some View {
+        if let crop = editing?.crop, crop.isEnabled {
+            let safeWidth = max(crop.width, 0.001)
+            let safeHeight = max(crop.height, 0.001)
+            let scale = max(1 / safeWidth, 1 / safeHeight)
+            let scaledWidth = size.width * scale
+            let scaledHeight = size.height * scale
+            let offsetX = -crop.originX * scaledWidth
+            let offsetY = -crop.originY * scaledHeight
+
+            ZStack(alignment: .topLeading) {
+                VideoPlayer(player: player)
+                    .frame(width: scaledWidth, height: scaledHeight, alignment: .topLeading)
+                    .offset(x: offsetX, y: offsetY)
+            }
+            .frame(width: size.width, height: size.height, alignment: .topLeading)
+            .clipped()
+        } else {
+            VideoPlayer(player: player)
+                .frame(width: size.width, height: size.height)
+        }
+    }
+
+    private func errorView(message: String) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.title)
+                .foregroundStyle(.white)
+            Text(errorMessage ?? message)
+                .multilineTextAlignment(.center)
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.9))
+        }
+        .padding()
+    }
+
+    private func preparePlayback() {
+        guard asset.kind == .video else { return }
+        errorMessage = nil
+        resetFreezeState()
+        playback.prepare(url: asset.url, autoPlay: false, onReady: {
+            playback.player?.pause()
+            playback.player?.seek(to: .zero)
+            setupTimeObserver()
+            preloadFreezeSnapshots()
+        }, onFailure: { error in
+            errorMessage = error.localizedDescription
+        })
+    }
+
+    private func preloadFreezeSnapshots() {
+        guard let editing = editing else { return }
+        for freeze in editing.freezeFrames {
+            ensureFreezeSnapshot(for: freeze, force: false)
+        }
+    }
+
+    private func ensureFreezeSnapshot(for freeze: StepDraft.VideoEditing.FreezeFrame, force: Bool) {
+        if !force, freezeSnapshots[freeze.id] != nil { return }
+        let url = asset.url
+        let crop = editing?.crop
+        Task.detached(priority: .userInitiated) {
+            let image = await captureFreezeFrameImage(url: url,
+                                                      time: freeze.time,
+                                                      crop: crop?.isEnabled == true ? crop : nil)
+            await MainActor.run {
+                if let image {
+                    freezeSnapshots[freeze.id] = image
+                    if activeFreezeID == freeze.id {
+                        freezeOverlay = image
+                    }
+                }
+            }
+        }
+    }
+
+    private func setupTimeObserver() {
+        removeTimeObserver()
+        guard let player = playback.player else { return }
+        let interval = CMTime(seconds: 0.05, preferredTimescale: 600)
+        timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { time in
+            handleFreezeFrames(at: time.seconds)
+        }
+    }
+
+    private func handleFreezeFrames(at seconds: Double) {
+        guard let editing = editing else { return }
+        if let active = activeFreezeID,
+           let freeze = editing.freezeFrames.first(where: { $0.id == active }) {
+            if seconds >= freeze.time + freeze.duration {
+                endFreeze()
+            }
+            return
+        }
+
+        guard freezeOverlay == nil else { return }
+
+        for freeze in editing.freezeFrames.sorted(by: { $0.time < $1.time }) {
+            if completedFreezeIDs.contains(freeze.id) { continue }
+            if seconds >= freeze.time {
+                beginFreeze(freeze)
+                break
+            }
+        }
+    }
+
+    private func beginFreeze(_ freeze: StepDraft.VideoEditing.FreezeFrame) {
+        guard let player = playback.player else { return }
+        completedFreezeIDs.insert(freeze.id)
+        activeFreezeID = freeze.id
+        player.pause()
+        freezeResumeWorkItem?.cancel()
+
+        Task(priority: .userInitiated) {
+            let currentImage: UIImage?
+            if let cached = freezeSnapshots[freeze.id] {
+                currentImage = cached
+            } else {
+                let cropSetting = (editing?.crop.isEnabled == true) ? editing?.crop : nil
+                let captured = await captureFreezeFrameImage(url: asset.url,
+                                                              time: freeze.time,
+                                                              crop: cropSetting)
+                await MainActor.run {
+                    if let captured {
+                        freezeSnapshots[freeze.id] = captured
+                    }
+                }
+                currentImage = captured
+            }
+
+            await MainActor.run {
+                freezeOverlay = currentImage
+                let workItem = DispatchWorkItem {
+                    endFreeze()
+                    player.play()
+                }
+                freezeResumeWorkItem = workItem
+                DispatchQueue.main.asyncAfter(deadline: .now() + freeze.duration, execute: workItem)
+            }
+        }
+    }
+
+    private func endFreeze() {
+        freezeResumeWorkItem?.cancel()
+        freezeResumeWorkItem = nil
+        freezeOverlay = nil
+        activeFreezeID = nil
+    }
+
+    private func resetFreezeState() {
+        freezeResumeWorkItem?.cancel()
+        freezeResumeWorkItem = nil
+        freezeOverlay = nil
+        activeFreezeID = nil
+        completedFreezeIDs.removeAll()
+    }
+
+    private func removeTimeObserver() {
+        if let token = timeObserver, let player = playback.player {
+            player.removeTimeObserver(token)
+        }
+        timeObserver = nil
+    }
+
+    private func teardown() {
+        removeTimeObserver()
+        resetFreezeState()
+        playback.teardown()
     }
 }
 
 private struct PictureInPicturePreview: View {
     let primary: ImportedMediaAsset
     let secondary: ImportedMediaAsset
+    var primaryEdit: StepDraft.VideoEditing? = nil
+    var secondaryEdit: StepDraft.VideoEditing? = nil
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            MediaPlaybackView(asset: primary, height: 200)
-            MediaPlaybackView(asset: secondary, height: 100, fillsHorizontally: false)
+            MediaPlaybackView(asset: primary, height: 200, editing: primaryEdit)
+            MediaPlaybackView(asset: secondary, height: 100, fillsHorizontally: false, editing: secondaryEdit)
                 .frame(width: 160, height: 100)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
@@ -1846,37 +2647,58 @@ private struct PrivacyReviewSheet: View {
     .environmentObject(AppState())
 }
 
-private struct AssetIdentifier: Identifiable {
+private struct AssetIdentifier: Identifiable, Equatable {
     let id: ImportedMediaAsset.ID
 }
 
+private enum ScrollTarget {
+    static let mediaEditor = "media-editor-section"
+}
+
 private extension CreatorView {
-    func commitTimelineDraftIfNeeded() {
-        guard let updated = timelineDraft else { return }
-        appState.activeDraft = updated
-        timelineDraft = nil
+}
 
-        let segments = updated.timeline.segmentOrder.compactMap { updated.segments[$0] }
-        guard !segments.isEmpty else { return }
+private nonisolated func captureFreezeFrameImage(url: URL, time: Double, crop: StepDraft.VideoEditing.Crop?) async -> UIImage? {
+    let asset = AVURLAsset(url: url)
+    let generator = AVAssetImageGenerator(asset: asset)
+    generator.appliesPreferredTrackTransform = true
+    generator.maximumSize = CGSize(width: 1920, height: 1920)
+    let targetTime = CMTime(seconds: time, preferredTimescale: 600)
 
-        var newSteps: [StepDraft] = []
-        for (index, segment) in segments.enumerated() {
-            var step = StepDraft(
-                order: index + 1,
-                title: segment.label.isEmpty ? "Segment \(index + 1)" : segment.label,
-                focus: "",
-                captureType: .video,
-                overlays: [],
-                mediaAssetIDs: [segment.assetID],
-                audioAssetIDs: [],
-                prefersAutoTranscript: false
-            )
-            step.timelineRange = segment.start_s...segment.end_s
-            newSteps.append(step)
+    do {
+        let cgImage: CGImage = try await withCheckedThrowingContinuation { continuation in
+            let values = [NSValue(time: targetTime)]
+            generator.generateCGImagesAsynchronously(forTimes: values) { _, image, _, result, error in
+                if result == .succeeded, let image {
+                    continuation.resume(returning: image)
+                } else if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(throwing: NSError(domain: "FreezeFrame", code: -1, userInfo: nil))
+                }
+            }
         }
-        stepDrafts = newSteps
-        selectedStepID = stepDrafts.first?.id
+
+        var uiImage = UIImage(cgImage: cgImage)
+        if let crop, crop.isEnabled, let cropped = cropImage(uiImage, crop: crop) {
+            uiImage = cropped
+        }
+        return uiImage
+    } catch {
+        return nil
     }
+}
+
+private nonisolated func cropImage(_ image: UIImage, crop: StepDraft.VideoEditing.Crop) -> UIImage? {
+    guard let cgImage = image.cgImage else { return nil }
+    let width = CGFloat(cgImage.width)
+    let height = CGFloat(cgImage.height)
+    let rect = CGRect(x: CGFloat(crop.originX) * width,
+                      y: CGFloat(crop.originY) * height,
+                      width: CGFloat(crop.width) * width,
+                      height: CGFloat(crop.height) * height)
+    guard let cropped = cgImage.cropping(to: rect) else { return nil }
+    return UIImage(cgImage: cropped, scale: image.scale, orientation: image.imageOrientation)
 }
 
 private struct MovieFile: Transferable {

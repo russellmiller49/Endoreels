@@ -1,0 +1,10 @@
+/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Compositor/EndoCompositionInstruction.swift
+/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Compositor/EndoCompositor.swift
+/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/EditGraph.swift
+/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/AnnotationModels.swift
+/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/CeilingRedact.swift
+/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/CropOperation.swift
+/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/FreezeSegment.swift
+/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/RedactOverlay.swift
+/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Utils/Geometry.swift
+/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/VideoEditorEngine.swift

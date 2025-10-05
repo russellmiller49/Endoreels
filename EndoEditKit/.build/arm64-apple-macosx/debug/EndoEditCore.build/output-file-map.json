@@ -1,0 +1,75 @@
+{
+  "": {
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/master.swiftdeps"
+  },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Compositor/EndoCompositionInstruction.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EndoCompositionInstruction.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EndoCompositionInstruction.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EndoCompositionInstruction~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EndoCompositionInstruction.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EndoCompositionInstruction.dia"
+  },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Compositor/EndoCompositor.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EndoCompositor.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EndoCompositor.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EndoCompositor~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EndoCompositor.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EndoCompositor.dia"
+  },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/EditGraph.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EditGraph.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EditGraph.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EditGraph~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EditGraph.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EditGraph.dia"
+  },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/AnnotationModels.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/AnnotationModels.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/AnnotationModels.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/AnnotationModels~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/AnnotationModels.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/AnnotationModels.dia"
+  },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/CeilingRedact.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/CeilingRedact.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/CeilingRedact.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/CeilingRedact~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/CeilingRedact.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/CeilingRedact.dia"
+  },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/CropOperation.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/CropOperation.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/CropOperation.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/CropOperation~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/CropOperation.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/CropOperation.dia"
+  },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/FreezeSegment.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/FreezeSegment.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/FreezeSegment.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/FreezeSegment~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/FreezeSegment.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/FreezeSegment.dia"
+  },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/RedactOverlay.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/RedactOverlay.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/RedactOverlay.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/RedactOverlay~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/RedactOverlay.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/RedactOverlay.dia"
+  },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Utils/Geometry.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Geometry.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Geometry.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Geometry~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Geometry.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Geometry.dia"
+  },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/VideoEditorEngine.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/VideoEditorEngine.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/VideoEditorEngine.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/VideoEditorEngine~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/VideoEditorEngine.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/VideoEditorEngine.dia"
+  }
+}

@@ -3,13 +3,23 @@ import AVKit
 import AVFoundation
 import CoreImage
 import CoreImage.CIFilterBuiltins
+import EndoEditUI
+import EndoEditCore
 
 struct MediaAssetEditorView: View {
     @Binding var asset: ImportedMediaAsset
+    @EnvironmentObject private var store: DemoDataStore
     @Environment(\.dismiss) private var dismiss
     @State private var exportMessage: String?
     @State private var exportError: String?
     @State private var isExporting = false
+    @AppStorage("useNewEditor") private var useNewEditor = false
+    private let onClose: (() -> Void)?
+
+    init(asset: Binding<ImportedMediaAsset>, onClose: (() -> Void)? = nil) {
+        _asset = asset
+        self.onClose = onClose
+    }
 
     var body: some View {
         NavigationStack {
@@ -21,7 +31,15 @@ struct MediaAssetEditorView: View {
 
                     switch asset.kind {
                     case .video:
-                        VideoEditorSection(asset: $asset, isExporting: $isExporting, exportMessage: $exportMessage, exportError: $exportError)
+                        if useNewEditor {
+                            if #available(iOS 17, *) {
+                                NewVideoEditorSection(asset: $asset, exportMessage: $exportMessage, exportError: $exportError)
+                            } else {
+                                legacyEditor
+                            }
+                        } else {
+                            legacyEditor
+                        }
                     case .image:
                         ImageEditorSection(asset: $asset, exportMessage: $exportMessage, exportError: $exportError)
                     case .audio:
@@ -31,9 +49,10 @@ struct MediaAssetEditorView: View {
                 .padding()
             }
             .navigationTitle("Edit Media")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
+                    Button("Done") { closeEditor() }
                 }
             }
             .alert(exportMessage ?? "", isPresented: Binding(
@@ -50,6 +69,19 @@ struct MediaAssetEditorView: View {
             } message: {
                 Text(exportError ?? "")
             }
+        }
+    }
+
+    @ViewBuilder
+    private var legacyEditor: some View {
+        VideoEditorSection(asset: $asset, isExporting: $isExporting, exportMessage: $exportMessage, exportError: $exportError)
+    }
+
+    private func closeEditor() {
+        if let onClose {
+            onClose()
+        } else {
+            dismiss()
         }
     }
 }
@@ -117,6 +149,370 @@ private struct ImageEditorSection: View {
             exportMessage = "Image adjustments saved."
         } catch {
             exportError = error.localizedDescription
+        }
+    }
+}
+
+@available(iOS 17, *)
+private struct NewVideoEditorSection: View {
+    @EnvironmentObject private var store: DemoDataStore
+    @Binding var asset: ImportedMediaAsset
+    @Binding var exportMessage: String?
+    @Binding var exportError: String?
+
+    @State private var selectedPreset: ExportPreset = .hevcSourceMatch
+    @State private var isExporting = false
+    @State private var exportProgress: Double = 0
+    @State private var exportedURL: URL?
+    @State private var cropEnabled = false
+    @State private var cropOriginX: Double = 0
+    @State private var cropOriginY: Double = 0
+    @State private var cropWidth: Double = 1
+    @State private var cropHeight: Double = 1
+    @State private var freezeModels: [FreezeUIModel] = []
+    @State private var graphVersion: Int = 0
+    @State private var resolvedDuration: Double = 0
+    @State private var legacyIsExporting = false
+
+    private var sourceURL: URL { asset.proxyURL ?? asset.url }
+    private var assetDuration: Double {
+        resolvedDuration.finiteOrZero
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if !FileManager.default.fileExists(atPath: sourceURL.path) {
+                missingFileView
+            } else {
+                let service = store.editingService(for: asset)
+                VideoEditorView(engine: service.engine)
+                    .id(graphVersion)
+                cropControls(service: service)
+                freezeControls(service: service)
+                exportControls(service: service)
+                legacyTrimSection
+            }
+        }
+        .task {
+            let service = store.editingService(for: asset)
+            await MainActor.run { syncState(with: service) }
+            await loadDuration(using: service)
+        }
+        .onChange(of: asset.url) { _, _ in
+            let service = store.editingService(for: asset)
+            syncState(with: service)
+            Task { await loadDuration(using: service) }
+        }
+    }
+
+    private var missingFileView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 48))
+                .foregroundStyle(.orange)
+            Text("Video file missing at \(sourceURL.lastPathComponent).")
+                .font(.footnote)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    @ViewBuilder
+    private func cropControls(service: EndoEditService) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle("Enable Crop", isOn: $cropEnabled)
+                .onChange(of: cropEnabled) { _, _ in
+                    clampCropState()
+                    persistGraph(using: service)
+                }
+
+            if cropEnabled {
+                cropSlider(title: "Left", value: $cropOriginX, range: 0...1) { clampCropState(); persistGraph(using: service) }
+                cropSlider(title: "Top", value: $cropOriginY, range: 0...1) { clampCropState(); persistGraph(using: service) }
+                cropSlider(title: "Width", value: $cropWidth, range: 0.1...1) { clampCropState(); persistGraph(using: service) }
+                cropSlider(title: "Height", value: $cropHeight, range: 0.1...1) { clampCropState(); persistGraph(using: service) }
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    @ViewBuilder
+    private func freezeControls(service: EndoEditService) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Freeze Frames")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Button {
+                    addFreeze(duration: assetDuration, using: service)
+                } label: {
+                    Label("Add Freeze", systemImage: "snowflake")
+                }
+                .buttonStyle(.bordered)
+            }
+
+            if freezeModels.isEmpty {
+                Text("No freeze frames configured.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach($freezeModels) { $model in
+                    FreezeEditorRow(model: $model,
+                                     maxDuration: assetDuration,
+                                     onRemove: {
+                                         freezeModels.removeAll { $0.id == model.id }
+                                         persistGraph(using: service)
+                                     },
+                                     onUpdate: {
+                                         clampFreeze(&model, maxDuration: assetDuration)
+                                         persistGraph(using: service)
+                                     })
+                }
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    @ViewBuilder
+    private func exportControls(service: EndoEditService) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Export")
+                .font(.subheadline.weight(.semibold))
+
+            Picker("Preset", selection: $selectedPreset) {
+                ForEach(ExportPreset.allCases, id: \.self) { preset in
+                    Text(preset.displayName).tag(preset)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            if isExporting {
+                VStack(alignment: .leading, spacing: 8) {
+                    ProgressView(value: exportProgress, total: 1.0) {
+                        Text("Encoding…")
+                    }
+                    .progressViewStyle(.linear)
+                    Text("\(Int(exportProgress * 100))% complete")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Button {
+                    Task { await export(service: service) }
+                } label: {
+                    Label("Export Clip", systemImage: "square.and.arrow.down")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+            }
+
+            if let exportedURL {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Last export: \(exportedURL.lastPathComponent)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    ShareLink(item: exportedURL) {
+                        Label("Share Exported File", systemImage: "square.and.arrow.up")
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    @MainActor
+    private func export(service: EndoEditService) async {
+        guard !isExporting else { return }
+
+        isExporting = true
+        exportProgress = 0
+        exportedURL = nil
+        exportMessage = nil
+        exportError = nil
+
+        let destination = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension(selectedPreset.fileExtension)
+
+        do {
+            try await service.export(to: destination, preset: selectedPreset) { value in
+                Task { @MainActor in
+                    exportProgress = min(max(value, 0), 1)
+                }
+            }
+            exportedURL = destination
+            exportMessage = "Exported to \(destination.lastPathComponent)"
+        } catch {
+            exportError = error.localizedDescription
+        }
+
+        isExporting = false
+    }
+
+    private func cropSlider(title: String, value: Binding<Double>, range: ClosedRange<Double>, onChange: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(value.wrappedValue.formatted(.number.precision(.fractionLength(2))))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Slider(value: Binding(
+                get: { value.wrappedValue },
+                set: { newValue in
+                    value.wrappedValue = newValue
+                    onChange()
+                }
+            ), in: range)
+        }
+    }
+
+    private func clampCropState() {
+        cropWidth = min(max(cropWidth, 0.1), 1)
+        cropHeight = min(max(cropHeight, 0.1), 1)
+        cropOriginX = min(max(cropOriginX, 0), 1 - cropWidth)
+        cropOriginY = min(max(cropOriginY, 0), 1 - cropHeight)
+    }
+
+    private func clampFreeze(_ model: inout FreezeUIModel, maxDuration: Double) {
+        let duration = max(maxDuration, 0.1)
+        model.start = min(max(model.start, 0), duration)
+        model.duration = min(max(model.duration, 0.1), max(duration - model.start, 0.1))
+    }
+
+    private func addFreeze(duration: Double, using service: EndoEditService) {
+        let start = min(Double(freezeModels.count) * 2.0, max(duration - 0.5, 0))
+        let model = FreezeUIModel(start: start, duration: min(1.0, max(duration - start, 0.5)))
+        freezeModels.append(model)
+        clampFreeze(&freezeModels[freezeModels.count - 1], maxDuration: assetDuration)
+        persistGraph(using: service)
+    }
+
+    private func persistGraph(using service: EndoEditService) {
+        var operations = service.editGraph.operations.filter { operation in
+            switch operation {
+            case .crop, .freeze:
+                return false
+            default:
+                return true
+            }
+        }
+
+        if cropEnabled {
+            let rect = NormalizedRect(
+                origin: NormalizedPoint(x: cropOriginX, y: cropOriginY),
+                size: CGSize(width: cropWidth, height: cropHeight)
+            )
+            operations.append(.crop(CropOperation(rect: rect)))
+        }
+
+        for model in freezeModels {
+            let startTime = CMTime(seconds: model.start, preferredTimescale: 600)
+            let durationTime = CMTime(seconds: model.duration, preferredTimescale: 600)
+            let segment = FreezeSegment(id: model.id,
+                                        start: startTime,
+                                        duration: durationTime,
+                                        sourceTime: startTime,
+                                        annotations: [])
+            operations.append(.freeze(segment))
+        }
+
+        var newGraph = service.editGraph
+        newGraph.operations = operations
+        service.editGraph = newGraph
+        graphVersion &+= 1
+    }
+
+    private func syncState(with service: EndoEditService) {
+        let graph = service.editGraph
+        resolvedDuration = asset.duration ?? resolvedDuration
+        if let cropOp = graph.operations.compactMap({ operation -> CropOperation? in
+            if case let .crop(op) = operation { return op }
+            return nil
+        }).last {
+            cropEnabled = true
+            cropOriginX = Double(cropOp.rect.origin.x)
+            cropOriginY = Double(cropOp.rect.origin.y)
+            cropWidth = Double(cropOp.rect.size.width)
+            cropHeight = Double(cropOp.rect.size.height)
+            clampCropState()
+        } else {
+            cropEnabled = false
+            cropOriginX = 0
+            cropOriginY = 0
+            cropWidth = 1
+            cropHeight = 1
+        }
+
+        let freezes = graph.operations.compactMap { operation -> FreezeSegment? in
+            if case let .freeze(segment) = operation { return segment }
+            return nil
+        }
+
+        freezeModels = freezes.map { segment in
+            FreezeUIModel(id: segment.id,
+                          start: CMTimeGetSeconds(segment.start).finiteOrZero,
+                          duration: CMTimeGetSeconds(segment.duration).finiteOrZero)
+        }
+        freezeModels = freezeModels.map { model in
+            var copy = model
+            clampFreeze(&copy, maxDuration: assetDuration)
+            return copy
+        }
+
+        graphVersion &+= 1
+    }
+
+    private func loadDuration(using service: EndoEditService) async {
+        if let known = asset.duration {
+            await MainActor.run { resolvedDuration = known }
+            return
+        }
+
+        do {
+            let duration = try await service.engine.asset.load(.duration)
+            let seconds = CMTimeGetSeconds(duration).finiteOrZero
+            await MainActor.run {
+                resolvedDuration = seconds
+                freezeModels = freezeModels.map { model in
+                    var copy = model
+                    clampFreeze(&copy, maxDuration: resolvedDuration)
+                    return copy
+                }
+                persistGraph(using: service)
+            }
+        } catch {
+            // Leave resolvedDuration as-is if duration fails to load.
+        }
+    }
+
+    private var legacyTrimSection: some View {
+        VideoEditorSection(
+            asset: $asset,
+            isExporting: $legacyIsExporting,
+            exportMessage: $exportMessage,
+            exportError: $exportError
+        )
+    }
+
+    fileprivate struct FreezeUIModel: Identifiable, Hashable {
+        let id: UUID
+        var start: Double
+        var duration: Double
+
+        init(id: UUID = UUID(), start: Double, duration: Double) {
+            self.id = id
+            self.start = start
+            self.duration = duration
         }
     }
 }
@@ -381,6 +777,60 @@ private struct AudioEditorSection: View {
     }
 }
 
+@available(iOS 17, *)
+private struct FreezeEditorRow: View {
+    @Binding var model: NewVideoEditorSection.FreezeUIModel
+    let maxDuration: Double
+    let onRemove: () -> Void
+    let onUpdate: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Freeze @ \(model.start, specifier: "%.2f")s")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Button(role: .destructive, action: onRemove) {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.borderless)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Start")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Slider(value: Binding(
+                    get: { model.start },
+                    set: { newValue in
+                        model.start = newValue
+                        onUpdate()
+                    }
+                ), in: 0...max(maxDuration, 0.1))
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Duration")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Slider(value: Binding(
+                    get: { model.duration },
+                    set: { newValue in
+                        model.duration = newValue
+                        onUpdate()
+                    }
+                ), in: 0.1...max(maxDuration, 0.1))
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.gray.opacity(0.15))
+        )
+    }
+}
+
 private struct VideoEditorSection: View {
     @Binding var asset: ImportedMediaAsset
     @Binding var isExporting: Bool
@@ -390,12 +840,6 @@ private struct VideoEditorSection: View {
     @StateObject private var playback = VideoPlaybackCoordinator()
     @State private var startTime: Double = 0
     @State private var endTime: Double = 0
-    @State private var playbackSpeed: Double = 1.0
-    @State private var enableStabilization: Bool = false
-    @State private var enableDeflicker: Bool = false
-    @State private var enableDenoise: Bool = false
-    @State private var freezeFrameTime: Double? = nil
-    @State private var showAdvancedOptions = false
 
     private var duration: Double {
         if let sanitized = asset.duration.sanitizedNonNegative {
@@ -425,17 +869,6 @@ private struct VideoEditorSection: View {
             .onAppear { configurePlayer() }
             .onChange(of: asset.proxyURL) { _, _ in configurePlayer() }
             .onChange(of: asset.url) { _, _ in configurePlayer() }
-            .overlay(alignment: .bottom) {
-                if let freezeTime = freezeFrameTime {
-                    Text("Freeze frame at \(freezeTime, specifier: "%.1f")s")
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                            .background(.thinMaterial)
-                            .clipShape(Capsule())
-                            .padding(8)
-                    }
-                }
 
             VStack(alignment: .leading, spacing: 12) {
                 Text("Trim Range")
@@ -464,63 +897,6 @@ private struct VideoEditorSection: View {
                 ), in: (startTime + 0.5)...sliderUpperBound)
             }
 
-            VStack(alignment: .leading, spacing: 12) {
-                DisclosureGroup("Advanced Editing Options", isExpanded: $showAdvancedOptions) {
-                    VStack(alignment: .leading, spacing: 16) {
-                        LabeledSlider(title: "Speed (\(playbackSpeed < 1 ? "Slow Motion" : playbackSpeed > 1 ? "Speed Up" : "Normal"))", value: $playbackSpeed, range: 0.25...4.0)
-                            .onChange(of: playbackSpeed) { _, newValue in
-                                player?.rate = Float(newValue)
-                            }
-
-                        Divider()
-
-                        Text("Visual Enhancements (Fidelity Safe)")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-
-                        Toggle("Stabilization", isOn: $enableStabilization)
-                            .tint(.blue)
-
-                        Toggle("Deflicker", isOn: $enableDeflicker)
-                            .tint(.blue)
-
-                        Toggle("Denoise", isOn: $enableDenoise)
-                            .tint(.blue)
-
-                        Divider()
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Freeze Frame")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-
-                            if let freezeTime = freezeFrameTime {
-                                HStack {
-                                    Text("At \(freezeTime, specifier: "%.1f")s")
-                                        .font(.caption)
-                                    Spacer()
-                                    Button("Remove", role: .destructive) {
-                                        freezeFrameTime = nil
-                                    }
-                                    .font(.caption)
-                                }
-                            } else {
-                                Button {
-                                    if let current = player?.currentTime().seconds {
-                                        freezeFrameTime = current
-                                    }
-                                } label: {
-                                    Label("Add freeze frame at current position", systemImage: "pause.rectangle")
-                                        .font(.caption)
-                                }
-                                .buttonStyle(.bordered)
-                            }
-                        }
-                    }
-                    .padding(.top, 8)
-                }
-                .font(.subheadline.weight(.semibold))
-            }
 
             Button {
                 Task { await exportTrimmedClip() }
@@ -536,28 +912,9 @@ private struct VideoEditorSection: View {
             .buttonStyle(.borderedProminent)
             .tint(.orange)
             .disabled(isExporting)
-
-            if enableStabilization || enableDeflicker || enableDenoise || playbackSpeed != 1.0 || freezeFrameTime != nil {
-                Text("⚠️ Disclosure: This video includes \(disclosureText)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .padding(8)
-                    .background(Color.orange.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
         }
         .onAppear { configureSliderBounds() }
         .onDisappear { playback.teardown() }
-    }
-
-    private var disclosureText: String {
-        var effects: [String] = []
-        if enableStabilization { effects.append("stabilization") }
-        if enableDeflicker { effects.append("deflicker") }
-        if enableDenoise { effects.append("denoise") }
-        if playbackSpeed != 1.0 { effects.append("speed adjustment") }
-        if freezeFrameTime != nil { effects.append("freeze frame") }
-        return effects.joined(separator: ", ")
     }
 
     private func configurePlayer() {

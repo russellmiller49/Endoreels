@@ -86,17 +86,21 @@ struct TimelineEditorView: View {
                     Slider(value: Binding(
                         get: { sliderValue },
                         set: { newValue in
+                            guard newValue.isFinite else { return }
                             isScrubbing = true
-                            sliderValue = newValue
-                            draft.playhead_s = newValue
-                            seekPlayer(to: newValue)
+                            let clamped = newValue.clamped(to: 0...maxDuration)
+                            sliderValue = clamped
+                            draft.playhead_s = clamped
+                            seekPlayer(to: clamped)
                         }
                     ), in: 0...maxDuration, onEditingChanged: { editing in
                         if !editing {
                             let snapped = snapValue(draft.playhead_s)
-                            sliderValue = snapped
-                            draft.playhead_s = snapped
-                            seekPlayer(to: snapped)
+                            if snapped.isFinite {
+                                sliderValue = snapped
+                                draft.playhead_s = snapped
+                                seekPlayer(to: snapped)
+                            }
                             isScrubbing = false
                         }
                     })

@@ -1,0 +1,1068 @@
+{
+  "builtTestProducts" : [
+    {
+      "binaryPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.xctest/Contents/MacOS/EndoEditKitPackageTests",
+      "packagePath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit",
+      "productName" : "EndoEditKitPackageTests"
+    }
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.EndoEditCore-arm64-apple-macosx26.0-debug.module" : {
+      "executable" : "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/sources",
+      "importPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Compositor/EndoCompositionInstruction.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Compositor/EndoCompositor.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/EditGraph.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/AnnotationModels.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/CeilingRedact.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/CropOperation.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/FreezeSegment.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/RedactOverlay.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Utils/Geometry.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/VideoEditorEngine.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/swift-version-39B54973F684ADAB.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "EndoEditCore",
+      "moduleOutputPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules/EndoEditCore.swiftmodule",
+      "objects" : [
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EndoCompositionInstruction.swift.o",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EndoCompositor.swift.o",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EditGraph.swift.o",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/AnnotationModels.swift.o",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/CeilingRedact.swift.o",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/CropOperation.swift.o",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/FreezeSegment.swift.o",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/RedactOverlay.swift.o",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Geometry.swift.o",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/VideoEditorEngine.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx10.13",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j11",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/include/EndoEditCore-Swift.h",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk",
+        "-F",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "endoeditkit"
+      ],
+      "outputFileMapPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EndoCompositionInstruction.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EndoCompositor.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EditGraph.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/AnnotationModels.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/CeilingRedact.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/CropOperation.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/FreezeSegment.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/RedactOverlay.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Geometry.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/VideoEditorEngine.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules/EndoEditCore.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Compositor/EndoCompositionInstruction.swift",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Compositor/EndoCompositor.swift",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/EditGraph.swift",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/AnnotationModels.swift",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/CeilingRedact.swift",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/CropOperation.swift",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/FreezeSegment.swift",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/RedactOverlay.swift",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Utils/Geometry.swift",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/VideoEditorEngine.swift"
+      ],
+      "tempsPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.EndoEditCoreTests-arm64-apple-macosx26.0-debug.module" : {
+      "executable" : "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCoreTests.build/sources",
+      "importPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Tests/EndoEditCoreTests/EndoEditCoreTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/swift-version-39B54973F684ADAB.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules/EndoEditCore.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCoreTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "EndoEditCoreTests",
+      "moduleOutputPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules/EndoEditCoreTests.swiftmodule",
+      "objects" : [
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCoreTests.build/EndoEditCoreTests.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j11",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk",
+        "-F",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "endoeditkit"
+      ],
+      "outputFileMapPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCoreTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCoreTests.build/EndoEditCoreTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules/EndoEditCoreTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Tests/EndoEditCoreTests/EndoEditCoreTests.swift"
+      ],
+      "tempsPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCoreTests.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.EndoEditKitPackageTests-arm64-apple-macosx26.0-debug.module" : {
+      "executable" : "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.build/sources",
+      "importPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.derived/runner.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/swift-version-39B54973F684ADAB.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules/EndoEditCoreTests.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "EndoEditKitPackageTests",
+      "moduleOutputPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules/EndoEditKitPackageTests.swiftmodule",
+      "objects" : [
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.build/runner.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx10.13",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j11",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.build/include/EndoEditKitPackageTests-Swift.h",
+        "-plugin-path",
+        "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk",
+        "-F",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "endoeditkit"
+      ],
+      "outputFileMapPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.build/runner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules/EndoEditKitPackageTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.derived/runner.swift"
+      ],
+      "tempsPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.EndoEditUI-arm64-apple-macosx26.0-debug.module" : {
+      "executable" : "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/sources",
+      "importPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/AnnotationPalette.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/FreezeAnnotatorView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/RedactionHUD.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/SegmentationToolsView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/TimelineMiniView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/VideoEditorView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/swift-version-39B54973F684ADAB.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules/EndoEditCore.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "EndoEditUI",
+      "moduleOutputPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules/EndoEditUI.swiftmodule",
+      "objects" : [
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/AnnotationPalette.swift.o",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/FreezeAnnotatorView.swift.o",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/RedactionHUD.swift.o",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/SegmentationToolsView.swift.o",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/TimelineMiniView.swift.o",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/VideoEditorView.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx10.13",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j11",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/include/EndoEditUI-Swift.h",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk",
+        "-F",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "endoeditkit"
+      ],
+      "outputFileMapPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/AnnotationPalette.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/FreezeAnnotatorView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/RedactionHUD.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/SegmentationToolsView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/TimelineMiniView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/VideoEditorView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules/EndoEditUI.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/AnnotationPalette.swift",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/FreezeAnnotatorView.swift",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/RedactionHUD.swift",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/SegmentationToolsView.swift",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/TimelineMiniView.swift",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/VideoEditorView.swift"
+      ],
+      "tempsPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build",
+      "wholeModuleOptimization" : false
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "EndoEditCore" : [
+      "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "EndoEditCore",
+      "-package-name",
+      "endoeditkit",
+      "-c",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Compositor/EndoCompositionInstruction.swift",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Compositor/EndoCompositor.swift",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/EditGraph.swift",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/AnnotationModels.swift",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/CeilingRedact.swift",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/CropOperation.swift",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/FreezeSegment.swift",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/RedactOverlay.swift",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Utils/Geometry.swift",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/VideoEditorEngine.swift",
+      "-I",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx10.13",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j11",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/include/EndoEditCore-Swift.h",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk",
+      "-F",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-F",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-I",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "endoeditkit",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "EndoEditCoreTests" : [
+      "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "EndoEditCoreTests",
+      "-package-name",
+      "endoeditkit",
+      "-c",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Tests/EndoEditCoreTests/EndoEditCoreTests.swift",
+      "-I",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-Xfrontend",
+      "-enable-cross-import-overlays",
+      "-j11",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk",
+      "-F",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-F",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-I",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "endoeditkit",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "EndoEditKitPackageTests" : [
+      "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "EndoEditKitPackageTests",
+      "-package-name",
+      "endoeditkit",
+      "-c",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.derived/runner.swift",
+      "-I",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx10.13",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-Xfrontend",
+      "-enable-cross-import-overlays",
+      "-j11",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.build/include/EndoEditKitPackageTests-Swift.h",
+      "-plugin-path",
+      "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk",
+      "-F",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-F",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-I",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "endoeditkit",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "EndoEditUI" : [
+      "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "EndoEditUI",
+      "-package-name",
+      "endoeditkit",
+      "-c",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/AnnotationPalette.swift",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/FreezeAnnotatorView.swift",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/RedactionHUD.swift",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/SegmentationToolsView.swift",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/TimelineMiniView.swift",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/VideoEditorView.swift",
+      "-I",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx10.13",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j11",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/include/EndoEditUI-Swift.h",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk",
+      "-F",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-F",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-I",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "endoeditkit",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "EndoEditCore" : [
+
+    ],
+    "EndoEditCoreTests" : [
+      "EndoEditCore"
+    ],
+    "EndoEditKitPackageTests" : [
+      "EndoEditCoreTests",
+      "EndoEditCore"
+    ],
+    "EndoEditUI" : [
+      "EndoEditCore"
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+    "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.derived/runner.swift" : {
+      "inputs" : [
+
+      ],
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.derived/runner.swift"
+        }
+      ]
+    }
+  },
+  "traitConfiguration" : {
+    "default" : {
+
+    }
+  },
+  "writeCommands" : {
+    "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Compositor/EndoCompositionInstruction.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Compositor/EndoCompositor.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/EditGraph.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/AnnotationModels.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/CeilingRedact.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/CropOperation.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/FreezeSegment.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/RedactOverlay.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Utils/Geometry.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/VideoEditorEngine.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/sources"
+    },
+    "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCoreTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Tests/EndoEditCoreTests/EndoEditCoreTests.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCoreTests.build/sources"
+    },
+    "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.derived/runner.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.build/sources"
+    },
+    "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/AnnotationModels.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/CeilingRedact.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/CropOperation.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EditGraph.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EndoCompositionInstruction.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/EndoCompositor.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/FreezeSegment.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Geometry.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/RedactOverlay.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/VideoEditorEngine.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCoreTests.build/EndoEditCoreTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.build/runner.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditKitPackageTests.product/Objects.LinkFileList"
+    },
+    "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/AnnotationPalette.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/FreezeAnnotatorView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/RedactionHUD.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/SegmentationToolsView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/TimelineMiniView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/VideoEditorView.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/sources"
+    },
+    "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/swift-version-39B54973F684ADAB.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/swift-version-39B54973F684ADAB.txt"
+    }
+  }
+}

@@ -1,6 +1,8 @@
 import Foundation
 import Combine
 import SwiftUI
+import EndoEditCore
+
 
 enum ServiceLine: String, CaseIterable, Identifiable {
     case pulmonary
@@ -232,22 +234,44 @@ final class DemoDataStore: ObservableObject {
     @Published var importedAssets: [ImportedMediaAsset] = []
     @Published var continueWatching: [UserProgress] = []
 
+    private var editServices: [UUID: EndoEditService] = [:]
+
     init() {
         seed()
     }
 
     func addImportedAsset(_ asset: ImportedMediaAsset) {
         importedAssets.append(asset)
+        updateEditingServiceIfNeeded(for: asset)
     }
 
     func updateImportedAsset(_ asset: ImportedMediaAsset) {
         guard let index = importedAssets.firstIndex(where: { $0.id == asset.id }) else { return }
         importedAssets[index] = asset
+        updateEditingServiceIfNeeded(for: asset)
+    }
+
+    func editingService(for asset: ImportedMediaAsset) -> EndoEditService {
+        let resolvedURL = asset.proxyURL ?? asset.url
+        if let service = editServices[asset.id], service.sourceURL == resolvedURL {
+            return service
+        }
+
+        let service = EndoEditService(sourceURL: resolvedURL)
+        editServices[asset.id] = service
+        return service
     }
 
     func addComment(_ comment: CaseComment, to reelID: Reel.ID) {
         guard let index = reels.firstIndex(where: { $0.id == reelID }) else { return }
         reels[index].comments.append(comment)
+    }
+
+    private func updateEditingServiceIfNeeded(for asset: ImportedMediaAsset) {
+        let resolvedURL = asset.proxyURL ?? asset.url
+        if let service = editServices[asset.id], service.sourceURL != resolvedURL {
+            editServices[asset.id] = EndoEditService(sourceURL: resolvedURL)
+        }
     }
 
     private func seed() {

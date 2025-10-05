@@ -606,6 +606,7 @@ struct DemoSetupSheet: View {
     @State private var useSyntheticAssets = true
     @State private var showCMETracks = true
     @State private var anonymizeAuthors = false
+    @AppStorage("useNewEditor") private var useNewEditor = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -615,6 +616,7 @@ struct DemoSetupSheet: View {
                     Toggle("Enable beta UI", isOn: $enableBetaUI)
                     Toggle("Show CME surfaces", isOn: $showCMETracks)
                     Toggle("Use synthetic demo assets", isOn: $useSyntheticAssets)
+                    Toggle("Use new video editor", isOn: $useNewEditor)
                 }
                 Section("Privacy Controls") {
                     Toggle("Anonymize author names", isOn: $anonymizeAuthors)

@@ -1,0 +1,47 @@
+{
+  "": {
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/master.swiftdeps"
+  },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/AnnotationPalette.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/AnnotationPalette.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/AnnotationPalette.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/AnnotationPalette~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/AnnotationPalette.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/AnnotationPalette.dia"
+  },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/FreezeAnnotatorView.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/FreezeAnnotatorView.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/FreezeAnnotatorView.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/FreezeAnnotatorView~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/FreezeAnnotatorView.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/FreezeAnnotatorView.dia"
+  },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/RedactionHUD.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/RedactionHUD.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/RedactionHUD.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/RedactionHUD~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/RedactionHUD.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/RedactionHUD.dia"
+  },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/SegmentationToolsView.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/SegmentationToolsView.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/SegmentationToolsView.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/SegmentationToolsView~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/SegmentationToolsView.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/SegmentationToolsView.dia"
+  },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/TimelineMiniView.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/TimelineMiniView.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/TimelineMiniView.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/TimelineMiniView~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/TimelineMiniView.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/TimelineMiniView.dia"
+  },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditUI/VideoEditorView.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/VideoEditorView.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/VideoEditorView.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/VideoEditorView~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/VideoEditorView.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditUI.build/VideoEditorView.dia"
+  }
+}
