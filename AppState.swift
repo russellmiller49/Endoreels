@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import AVFoundation
 
 /// Root application state shared across major features.
 @MainActor
@@ -52,6 +53,9 @@ final class AppState: ObservableObject {
         }
 
         self.onboardingCompleted = UserDefaults.standard.bool(forKey: Keys.onboardingCompleted)
+        
+        // Initialize audio session for video playback
+        AudioSessionManager.shared.configureForPlayback()
     }
 
     func beginDraft(for asset: MediaAsset, title: String, difficulty: String) {

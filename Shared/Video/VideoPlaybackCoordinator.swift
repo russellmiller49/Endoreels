@@ -66,8 +66,12 @@ final class VideoPlaybackCoordinator: ObservableObject {
 
     func teardown() {
         watchdog.cancel()
+        
+        // Properly invalidate player before clearing references
         player?.pause()
+        player?.replaceCurrentItem(with: nil)
         player = nil
+        
         playerOwner.stop()
         state = .idle
     }

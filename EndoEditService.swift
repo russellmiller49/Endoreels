@@ -50,6 +50,7 @@ final class EndoEditService: VideoEditingService {
             throw ExportError.unableToCreateExportSession
         }
 
+        exportSession.enableLifecycleManagement()
         exportSession.outputURL = url
         exportSession.outputFileType = preset.outputFileType
         exportSession.shouldOptimizeForNetworkUse = true
@@ -78,6 +79,7 @@ final class EndoEditService: VideoEditingService {
             }
 
             progressTask.cancel()
+            exportSession.disableLifecycleManagement()
         } else {
             exportSession.outputFileType = preset.outputFileType
 
@@ -96,6 +98,7 @@ final class EndoEditService: VideoEditingService {
             do {
                 try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                     boxedSession.session.exportAsynchronously {
+                        boxedSession.session.disableLifecycleManagement()
                         switch boxedSession.session.status {
                         case .completed:
                             progress(1.0)

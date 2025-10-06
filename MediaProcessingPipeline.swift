@@ -50,11 +50,14 @@ public final class MediaProcessingPipeline {
                 guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetMediumQuality) else {
                     throw NSError(domain: "MediaProcessingPipeline", code: -3, userInfo: [NSLocalizedDescriptionKey: "Unable to create export session"])
                 }
+                exportSession.enableLifecycleManagement()
                 try await exportSession.export(to: outputURL, as: .mp4)
+                exportSession.disableLifecycleManagement()
             } else {
                 guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetMediumQuality) else {
                     throw NSError(domain: "MediaProcessingPipeline", code: -3, userInfo: [NSLocalizedDescriptionKey: "Unable to create export session"])
                 }
+                exportSession.enableLifecycleManagement()
                 exportSession.outputURL = outputURL
                 exportSession.outputFileType = .mp4
                 exportSession.shouldOptimizeForNetworkUse = true
@@ -62,6 +65,7 @@ public final class MediaProcessingPipeline {
                 try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                     nonisolated(unsafe) let session = exportSession
                     session.exportAsynchronously {
+                        session.disableLifecycleManagement()
                         switch session.status {
                         case .completed:
                             continuation.resume(returning: ())

@@ -26,6 +26,9 @@ final class PlayerOwner: NSObject {
 
         let player = AVPlayer(playerItem: item)
         player.automaticallyWaitsToMinimizeStalling = false
+        
+        // Enable lifecycle management
+        player.enableLifecycleManagement()
 
         self.item = item
         self.player = player
@@ -38,10 +41,19 @@ final class PlayerOwner: NSObject {
     }
 
     func stop() {
+        // Pause and invalidate player first
+        player?.pause()
+        player?.replaceCurrentItem(with: nil)
+        
+        // Disable lifecycle management
+        player?.disableLifecycleManagement()
+        
         if let item = item {
             item.removeObserver(self, forKeyPath: #keyPath(AVPlayerItem.status))
         }
         NotificationCenter.default.removeObserver(self)
+        
+        // Clear references in proper order
         item = nil
         player = nil
         onReady = nil
