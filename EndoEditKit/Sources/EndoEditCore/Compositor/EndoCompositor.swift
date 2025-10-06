@@ -50,7 +50,7 @@ public final class EndoCompositor: NSObject, AVVideoCompositing {
             let renderResult: CVPixelBuffer?
 
             if let freeze = self.freezeSegment(containing: request.compositionTime, from: instruction.freezeSegments),
-               let entry = self.freezeEntry(for: freeze, request: request, trackID: instruction.sourceTrackID) {
+               let entry = self.freezeEntry(for: freeze, instruction: instruction, request: request) {
                 renderResult = self.render(image: entry.image,
                                            sourceSize: entry.size,
                                            cropRect: instruction.cropRect,
@@ -91,21 +91,43 @@ private extension EndoCompositor {
     }
 
     func freezeEntry(for segment: FreezeSegment,
-                     request: AVAsynchronousVideoCompositionRequest,
-                     trackID: CMPersistentTrackID) -> FreezeCacheEntry? {
+                     instruction: EndoCompositionInstruction,
+                     request: AVAsynchronousVideoCompositionRequest) -> FreezeCacheEntry? {
         if let cached = freezeCache[segment.id] {
             return cached
         }
 
-        guard let buffer = request.sourceFrame(byTrackID: trackID) else {
-            return nil
+        if let generator = instruction.imageGenerator {
+            var actual = CMTime.zero
+            if let cgImage = try? generator.copyCGImage(at: segment.sourceTime, actualTime: &actual) {
+                let width = cgImage.width
+                let height = cgImage.height
+                guard width > 0, height > 0 else { return fallbackEntry(request: request, instruction: instruction, segment: segment) }
+                let image = CIImage(cgImage: cgImage)
+                let size = CGSize(width: width, height: height)
+                let entry = FreezeCacheEntry(image: image, size: size)
+                freezeCache[segment.id] = entry
+                return entry
+            }
         }
 
-        let size = CGSize(width: CVPixelBufferGetWidth(buffer), height: CVPixelBufferGetHeight(buffer))
-        let image = CIImage(cvPixelBuffer: buffer)
-        let entry = FreezeCacheEntry(image: image, size: size)
-        freezeCache[segment.id] = entry
-        return entry
+        return fallbackEntry(request: request, instruction: instruction, segment: segment)
+    }
+
+    private func fallbackEntry(request: AVAsynchronousVideoCompositionRequest,
+                               instruction: EndoCompositionInstruction,
+                               segment: FreezeSegment) -> FreezeCacheEntry? {
+        if let buffer = request.sourceFrame(byTrackID: instruction.sourceTrackID) {
+            let width = CVPixelBufferGetWidth(buffer)
+            let height = CVPixelBufferGetHeight(buffer)
+            guard width > 0, height > 0 else { return nil }
+            let size = CGSize(width: width, height: height)
+            let image = CIImage(cvPixelBuffer: buffer)
+            let entry = FreezeCacheEntry(image: image, size: size)
+            freezeCache[segment.id] = entry
+            return entry
+        }
+        return nil
     }
 
     func render(image baseImage: CIImage,
@@ -113,8 +135,16 @@ private extension EndoCompositor {
                 cropRect: NormalizedRect?,
                 renderContext: AVVideoCompositionRenderContext) -> CVPixelBuffer? {
         let outputSize = renderContext.size
-        guard outputSize.width > 0, outputSize.height > 0 else { return nil }
-        guard sourceSize.width > 0, sourceSize.height > 0 else { return nil }
+        print("🎨 Compositor.render: outputSize=\(outputSize), sourceSize=\(sourceSize), cropRect=\(String(describing: cropRect))")
+
+        guard sanitizeValue(outputSize.width) > 0, sanitizeValue(outputSize.height) > 0 else {
+            print("❌ Compositor.render: Invalid outputSize")
+            return nil
+        }
+        guard sanitizeValue(sourceSize.width) > 0, sanitizeValue(sourceSize.height) > 0 else {
+            print("❌ Compositor.render: Invalid sourceSize")
+            return nil
+        }
 
         guard let outputBuffer = renderContext.newPixelBuffer() else { return nil }
 
@@ -123,25 +153,70 @@ private extension EndoCompositor {
 
         if let crop = sanitizedCrop {
             var rect = crop.rect(inWidth: sourceSize.width, height: sourceSize.height)
-            rect.origin.y = sourceSize.height - rect.origin.y - rect.height
+            print("🎨 Compositor.render: pre-flip rect=\(rect)")
+
+            // Flip Y coordinate for CoreImage coordinate system (validate all components)
+            let flippedY = sanitizeValue(sourceSize.height - rect.origin.y - rect.height, min: 0)
+            rect.origin.y = flippedY
+
+            // Validate rect components before integral conversion
+            rect.origin.x = sanitizeValue(rect.origin.x, min: 0)
+            rect.size.width = sanitizeValue(rect.size.width, min: 1)
+            rect.size.height = sanitizeValue(rect.size.height, min: 1)
+            print("🎨 Compositor.render: sanitized rect=\(rect)")
+
             rect = rect.integral
-            guard rect.width > 0, rect.height > 0 else { return nil }
+            print("🎨 Compositor.render: integral rect=\(rect)")
+            guard rect.width > 0, rect.height > 0 else {
+                print("❌ Compositor.render: Invalid rect after integral")
+                return nil
+            }
+
             workingImage = workingImage.cropped(to: rect)
-            let scaleX = outputSize.width / rect.width
-            let scaleY = outputSize.height / rect.height
+            let scaleX = sanitizeValue(outputSize.width / rect.width, min: 0.01)
+            let scaleY = sanitizeValue(outputSize.height / rect.height, min: 0.01)
+            guard scaleX > 0, scaleY > 0 else { return nil }
             workingImage = workingImage.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
         } else {
-            let scaleX = outputSize.width / sourceSize.width
-            let scaleY = outputSize.height / sourceSize.height
+            let scaleX = sanitizeValue(outputSize.width / sourceSize.width, min: 0.01)
+            let scaleY = sanitizeValue(outputSize.height / sourceSize.height, min: 0.01)
+            guard scaleX > 0, scaleY > 0 else { return nil }
             workingImage = workingImage.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
+        }
+
+        // Validate the final image extent before rendering
+        let extent = workingImage.extent
+        guard extent.isFinite,
+              extent.width.isFinite,
+              extent.height.isFinite,
+              !extent.isEmpty else {
+            return nil
+        }
+
+        let renderBounds = CGRect(origin: .zero, size: outputSize)
+        guard renderBounds.isFinite,
+              renderBounds.width > 0,
+              renderBounds.height > 0 else {
+            return nil
         }
 
         ciContext.render(workingImage,
                          to: outputBuffer,
-                         bounds: CGRect(origin: .zero, size: outputSize),
+                         bounds: renderBounds,
                          colorSpace: colorSpace)
 
         return outputBuffer
+    }
+
+    private func sanitizeValue(_ value: CGFloat, min minValue: CGFloat = 0) -> CGFloat {
+        guard value.isFinite else { return minValue }
+        return max(value, minValue)
+    }
+}
+
+private extension CGRect {
+    var isFinite: Bool {
+        origin.x.isFinite && origin.y.isFinite && size.width.isFinite && size.height.isFinite
     }
 }
 

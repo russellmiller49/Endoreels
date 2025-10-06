@@ -253,12 +253,19 @@ private struct NewVideoEditorSection: View {
                     Label("Add Freeze", systemImage: "snowflake")
                 }
                 .buttonStyle(.bordered)
+                .disabled(assetDuration <= 0)
             }
 
             if freezeModels.isEmpty {
-                Text("No freeze frames configured.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if assetDuration <= 0 {
+                    Text("Freeze frames become available once video metadata finishes loading.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("No freeze frames configured.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             } else {
                 ForEach($freezeModels) { $model in
                     FreezeEditorRow(model: $model,
@@ -377,19 +384,31 @@ private struct NewVideoEditorSection: View {
     }
 
     private func clampCropState() {
-        cropWidth = min(max(cropWidth, 0.1), 1)
-        cropHeight = min(max(cropHeight, 0.1), 1)
-        cropOriginX = min(max(cropOriginX, 0), 1 - cropWidth)
-        cropOriginY = min(max(cropOriginY, 0), 1 - cropHeight)
+        // Sanitize inputs first to prevent NaN propagation
+        cropWidth = sanitizeDouble(cropWidth, min: 0.1, max: 1.0)
+        cropHeight = sanitizeDouble(cropHeight, min: 0.1, max: 1.0)
+        cropOriginX = sanitizeDouble(cropOriginX, min: 0, max: 1.0)
+        cropOriginY = sanitizeDouble(cropOriginY, min: 0, max: 1.0)
+
+        // Now clamp origin to ensure crop doesn't exceed bounds
+        cropOriginX = min(cropOriginX, 1 - cropWidth)
+        cropOriginY = min(cropOriginY, 1 - cropHeight)
+    }
+
+    private func sanitizeDouble(_ value: Double, min minValue: Double, max maxValue: Double = .greatestFiniteMagnitude) -> Double {
+        guard value.isFinite else { return minValue }
+        return Swift.min(Swift.max(value, minValue), maxValue)
     }
 
     private func clampFreeze(_ model: inout FreezeUIModel, maxDuration: Double) {
-        let duration = max(maxDuration, 0.1)
-        model.start = min(max(model.start, 0), duration)
-        model.duration = min(max(model.duration, 0.1), max(duration - model.start, 0.1))
+        let duration = sanitizeDouble(maxDuration, min: 0.1)
+        model.start = sanitizeDouble(model.start, min: 0, max: duration)
+        let remainingDuration = sanitizeDouble(duration - model.start, min: 0.1)
+        model.duration = sanitizeDouble(model.duration, min: 0.1, max: remainingDuration)
     }
 
     private func addFreeze(duration: Double, using service: EndoEditService) {
+        guard duration > 0 else { return }
         let start = min(Double(freezeModels.count) * 2.0, max(duration - 0.5, 0))
         let model = FreezeUIModel(start: start, duration: min(1.0, max(duration - start, 0.5)))
         freezeModels.append(model)
@@ -411,19 +430,23 @@ private struct NewVideoEditorSection: View {
             let rect = NormalizedRect(
                 origin: NormalizedPoint(x: cropOriginX, y: cropOriginY),
                 size: CGSize(width: cropWidth, height: cropHeight)
-            )
+            ).sanitized()
             operations.append(.crop(CropOperation(rect: rect)))
         }
 
-        for model in freezeModels {
-            let startTime = CMTime(seconds: model.start, preferredTimescale: 600)
-            let durationTime = CMTime(seconds: model.duration, preferredTimescale: 600)
-            let segment = FreezeSegment(id: model.id,
-                                        start: startTime,
-                                        duration: durationTime,
-                                        sourceTime: startTime,
-                                        annotations: [])
-            operations.append(.freeze(segment))
+        if resolvedDuration > 0 {
+            let maxDuration = CMTime(seconds: resolvedDuration, preferredTimescale: 600)
+            for model in freezeModels {
+                let startTime = CMTime(seconds: model.start, preferredTimescale: 600)
+                let durationTime = CMTime(seconds: model.duration, preferredTimescale: 600)
+                let segment = FreezeSegment(id: model.id,
+                                            start: startTime,
+                                            duration: durationTime,
+                                            sourceTime: startTime,
+                                            annotations: [])
+                    .sanitized(maxDuration: maxDuration)
+                operations.append(.freeze(segment))
+            }
         }
 
         var newGraph = service.editGraph
@@ -439,11 +462,12 @@ private struct NewVideoEditorSection: View {
             if case let .crop(op) = operation { return op }
             return nil
         }).last {
+            let sanitizedRect = cropOp.sanitized().rect
             cropEnabled = true
-            cropOriginX = Double(cropOp.rect.origin.x)
-            cropOriginY = Double(cropOp.rect.origin.y)
-            cropWidth = Double(cropOp.rect.size.width)
-            cropHeight = Double(cropOp.rect.size.height)
+            cropOriginX = Double(sanitizedRect.origin.x)
+            cropOriginY = Double(sanitizedRect.origin.y)
+            cropWidth = Double(sanitizedRect.size.width)
+            cropHeight = Double(sanitizedRect.size.height)
             clampCropState()
         } else {
             cropEnabled = false
@@ -462,8 +486,7 @@ private struct NewVideoEditorSection: View {
             FreezeUIModel(id: segment.id,
                           start: CMTimeGetSeconds(segment.start).finiteOrZero,
                           duration: CMTimeGetSeconds(segment.duration).finiteOrZero)
-        }
-        freezeModels = freezeModels.map { model in
+        }.map { model in
             var copy = model
             clampFreeze(&copy, maxDuration: assetDuration)
             return copy
@@ -496,12 +519,16 @@ private struct NewVideoEditorSection: View {
     }
 
     private var legacyTrimSection: some View {
-        VideoEditorSection(
-            asset: $asset,
-            isExporting: $legacyIsExporting,
-            exportMessage: $exportMessage,
-            exportError: $exportError
-        )
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Trim Clip")
+                .font(.subheadline.weight(.semibold))
+            VideoEditorSection(
+                asset: $asset,
+                isExporting: $legacyIsExporting,
+                exportMessage: $exportMessage,
+                exportError: $exportError
+            )
+        }
     }
 
     fileprivate struct FreezeUIModel: Identifiable, Hashable {

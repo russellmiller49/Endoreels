@@ -31,22 +31,40 @@ public final class EndoEditorEngine {
     public func makePreviewPlayerItem() async throws -> AVPlayerItem {
         let tracks = try await asset.loadTracks(withMediaType: .video)
         guard let videoTrack = tracks.first else {
+            print("❌ VideoEditorEngine: No video track found")
             throw EndoEditorEngineError.missingVideoTrack
         }
 
-        let summary = GraphSummary(from: editGraph, assetDuration: duration)
-
         let duration = try await asset.load(.duration)
+        print("🎬 VideoEditorEngine: duration=\(duration)")
+
+        let summary = GraphSummary(from: editGraph, assetDuration: duration)
         let frameRate = try await videoTrack.load(.nominalFrameRate)
         let naturalSize = try await videoTrack.load(.naturalSize)
         let preferredTransform = try await videoTrack.load(.preferredTransform)
+
+        print("🎬 VideoEditorEngine: frameRate=\(frameRate), naturalSize=\(naturalSize)")
+        print("🎬 VideoEditorEngine: naturalSize.width.isFinite=\(naturalSize.width.isFinite), naturalSize.height.isFinite=\(naturalSize.height.isFinite)")
+
+        // Critical check: ensure natural size is valid before proceeding
+        guard naturalSize.width.isFinite, naturalSize.height.isFinite,
+              naturalSize.width > 0, naturalSize.height > 0 else {
+            print("❌ VideoEditorEngine: Invalid naturalSize=\(naturalSize)")
+            throw EndoEditorEngineError.missingVideoTrack
+        }
+
+        let imageGenerator = AVAssetImageGenerator(asset: asset)
+        imageGenerator.appliesPreferredTrackTransform = true
+        imageGenerator.requestedTimeToleranceBefore = .zero
+        imageGenerator.requestedTimeToleranceAfter = .zero
 
         let timeRange = CMTimeRange(start: .zero, duration: duration)
         let instruction = EndoCompositionInstruction(
             timeRange: timeRange,
             sourceTrackID: videoTrack.trackID,
             cropRect: summary.cropRect,
-            freezeSegments: summary.freezeSegments
+            freezeSegments: summary.freezeSegments,
+            imageGenerator: imageGenerator
         )
 
         let videoComposition = AVMutableVideoComposition()
@@ -58,14 +76,27 @@ public final class EndoEditorEngine {
         videoComposition.frameDuration = CMTime(value: 1, timescale: timescale)
 
         let transformedSize = naturalSize.applying(preferredTransform)
-        let baseWidth = abs(transformedSize.width)
-        let baseHeight = abs(transformedSize.height)
+        print("🎬 VideoEditorEngine: naturalSize=\(naturalSize), transform=\(preferredTransform), transformed=\(transformedSize)")
+
+        let baseWidth = sanitize(abs(transformedSize.width), min: 1)
+        let baseHeight = sanitize(abs(transformedSize.height), min: 1)
+        print("🎬 VideoEditorEngine: baseWidth=\(baseWidth), baseHeight=\(baseHeight)")
+
+        let finalRenderSize: CGSize
         if let crop = summary.cropRect {
-            videoComposition.renderSize = CGSize(width: baseWidth * crop.size.width,
-                                                height: baseHeight * crop.size.height)
+            print("🎬 VideoEditorEngine: crop rect=\(crop)")
+            let cropWidth = sanitize(crop.size.width, min: 0.1, max: 1.0)
+            let cropHeight = sanitize(crop.size.height, min: 0.1, max: 1.0)
+            let width = sanitize(baseWidth * cropWidth, min: 1)
+            let height = sanitize(baseHeight * cropHeight, min: 1)
+            finalRenderSize = CGSize(width: width, height: height)
+            print("🎬 VideoEditorEngine: finalRenderSize (cropped)=\(finalRenderSize)")
         } else {
-            videoComposition.renderSize = CGSize(width: baseWidth, height: baseHeight)
+            finalRenderSize = CGSize(width: baseWidth, height: baseHeight)
+            print("🎬 VideoEditorEngine: finalRenderSize (uncropped)=\(finalRenderSize)")
         }
+
+        videoComposition.renderSize = finalRenderSize
 
         let playerItem = AVPlayerItem(asset: asset)
         playerItem.videoComposition = videoComposition
@@ -99,5 +130,10 @@ private struct GraphSummary {
         }
         self.freezeSegments = freezes.sorted { $0.start < $1.start }
     }
+}
+
+private func sanitize(_ value: CGFloat, min minValue: CGFloat = 0, max maxValue: CGFloat = .greatestFiniteMagnitude) -> CGFloat {
+    guard value.isFinite else { return minValue }
+    return Swift.min(Swift.max(value, minValue), maxValue)
 }
 #endif

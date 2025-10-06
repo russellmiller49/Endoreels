@@ -6,6 +6,7 @@ public final class EndoCompositionInstruction: NSObject, AVVideoCompositionInstr
     public let sourceTrackID: CMPersistentTrackID
     public let cropRect: NormalizedRect?
     public let freezeSegments: [FreezeSegment]
+    public let imageGenerator: AVAssetImageGenerator?
 
     public var enablePostProcessing: Bool = false
     public var containsTweening: Bool = false
@@ -15,11 +16,13 @@ public final class EndoCompositionInstruction: NSObject, AVVideoCompositionInstr
     public init(timeRange: CMTimeRange,
                 sourceTrackID: CMPersistentTrackID,
                 cropRect: NormalizedRect?,
-                freezeSegments: [FreezeSegment]) {
+                freezeSegments: [FreezeSegment],
+                imageGenerator: AVAssetImageGenerator?) {
         self.timeRange = timeRange
         self.sourceTrackID = sourceTrackID
         self.cropRect = cropRect
         self.freezeSegments = freezeSegments
+        self.imageGenerator = imageGenerator
         self.passthroughTrackID = sourceTrackID
         self.requiredSourceTrackIDs = [NSNumber(value: sourceTrackID)]
         super.init()
