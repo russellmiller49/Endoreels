@@ -14,6 +14,7 @@
 /* Begin PBXFileReference section */
 		703E3D612E90A46C008B760B /* EndoReels.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = EndoReels.xcodeproj; sourceTree = "<group>"; };
 		7062BBC72E92BAB3008A1B21 /* EndoReels.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = EndoReels.xcodeproj; sourceTree = "<group>"; };
+		7064F8352E948539006808A7 /* EndoReels.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = EndoReels.xcodeproj; sourceTree = "<group>"; };
 		7087847F2E8F4D1800468B14 /* EndoReels.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = EndoReels.xcodeproj; sourceTree = "<group>"; };
 		708784E32E8F4D3C00468B14 /* EndoReels.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = EndoReels.xcodeproj; sourceTree = "<group>"; };
 		7087853A2E903ACE00468B14 /* EndoReels.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = EndoReels.xcodeproj; sourceTree = "<group>"; };
@@ -48,6 +49,11 @@
 			sourceTree = "<group>";
 		};
 		7062BBE42E92BAB3008A1B21 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		7064F8532E948539006808A7 /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
@@ -165,6 +171,10 @@
 				{
 					ProductGroup = 7062BBE42E92BAB3008A1B21 /* Products */;
 					ProjectRef = 7062BBC72E92BAB3008A1B21 /* EndoReels.xcodeproj */;
+				},
+				{
+					ProductGroup = 7064F8532E948539006808A7 /* Products */;
+					ProjectRef = 7064F8352E948539006808A7 /* EndoReels.xcodeproj */;
 				},
 				{
 					ProductGroup = 70A596152E92DD1C001938E4 /* Products */;

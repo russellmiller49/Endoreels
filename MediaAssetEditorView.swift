@@ -180,7 +180,11 @@ private struct NewVideoEditorSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+#if DEBUG
+        let _ = print("🧱 NewVideoEditorSection init for asset=\(asset.filename)")
+#endif
+
+        return VStack(alignment: .leading, spacing: 16) {
             if !FileManager.default.fileExists(atPath: sourceURL.path) {
                 missingFileView
             } else {
@@ -194,11 +198,20 @@ private struct NewVideoEditorSection: View {
             }
         }
         .task {
+#if DEBUG
+            print("🔁 NewVideoEditorSection.task starting")
+#endif
             let service = store.editingService(for: asset)
             await MainActor.run { syncState(with: service) }
             await loadDuration(using: service)
+#if DEBUG
+            print("🔁 NewVideoEditorSection.task finished (resolvedDuration=\(resolvedDuration))")
+#endif
         }
         .onChange(of: asset.url) { _, _ in
+#if DEBUG
+            print("🔄 asset.url changed → resync")
+#endif
             let service = store.editingService(for: asset)
             syncState(with: service)
             Task { await loadDuration(using: service) }
@@ -227,13 +240,40 @@ private struct NewVideoEditorSection: View {
                 .onChange(of: cropEnabled) { _, _ in
                     clampCropState()
                     persistGraph(using: service)
+#if DEBUG
+                    print("✂️ Crop toggled: enabled=\(cropEnabled) rect={x: \(cropOriginX), y: \(cropOriginY), w: \(cropWidth), h: \(cropHeight)}")
+#endif
                 }
 
             if cropEnabled {
-                cropSlider(title: "Left", value: $cropOriginX, range: 0...1) { clampCropState(); persistGraph(using: service) }
-                cropSlider(title: "Top", value: $cropOriginY, range: 0...1) { clampCropState(); persistGraph(using: service) }
-                cropSlider(title: "Width", value: $cropWidth, range: 0.1...1) { clampCropState(); persistGraph(using: service) }
-                cropSlider(title: "Height", value: $cropHeight, range: 0.1...1) { clampCropState(); persistGraph(using: service) }
+                cropSlider(title: "Left", value: $cropOriginX, range: 0...1) {
+                    clampCropState()
+                    persistGraph(using: service)
+#if DEBUG
+                    print("✂️ Crop updated: rect={x: \(cropOriginX), y: \(cropOriginY), w: \(cropWidth), h: \(cropHeight)}")
+#endif
+                }
+                cropSlider(title: "Top", value: $cropOriginY, range: 0...1) {
+                    clampCropState()
+                    persistGraph(using: service)
+#if DEBUG
+                    print("✂️ Crop updated: rect={x: \(cropOriginX), y: \(cropOriginY), w: \(cropWidth), h: \(cropHeight)}")
+#endif
+                }
+                cropSlider(title: "Width", value: $cropWidth, range: 0.1...1) {
+                    clampCropState()
+                    persistGraph(using: service)
+#if DEBUG
+                    print("✂️ Crop updated: rect={x: \(cropOriginX), y: \(cropOriginY), w: \(cropWidth), h: \(cropHeight)}")
+#endif
+                }
+                cropSlider(title: "Height", value: $cropHeight, range: 0.1...1) {
+                    clampCropState()
+                    persistGraph(using: service)
+#if DEBUG
+                    print("✂️ Crop updated: rect={x: \(cropOriginX), y: \(cropOriginY), w: \(cropWidth), h: \(cropHeight)}")
+#endif
+                }
             }
         }
         .padding()
@@ -249,6 +289,9 @@ private struct NewVideoEditorSection: View {
                 Spacer()
                 Button {
                     addFreeze(duration: assetDuration, using: service)
+#if DEBUG
+                    print("🧊 Freeze added. total=\(freezeModels.count)")
+#endif
                 } label: {
                     Label("Add Freeze", systemImage: "snowflake")
                 }
@@ -273,10 +316,16 @@ private struct NewVideoEditorSection: View {
                                      onRemove: {
                                          freezeModels.removeAll { $0.id == model.id }
                                          persistGraph(using: service)
+#if DEBUG
+                                         print("🧊 Freeze removed. total=\(freezeModels.count)")
+#endif
                                      },
                                      onUpdate: {
                                          clampFreeze(&model, maxDuration: assetDuration)
                                          persistGraph(using: service)
+#if DEBUG
+                                         print("🧊 Freeze updated: id=\(model.id) start=\(model.start) dur=\(model.duration)")
+#endif
                                      })
                 }
             }
@@ -310,6 +359,9 @@ private struct NewVideoEditorSection: View {
                 }
             } else {
                 Button {
+#if DEBUG
+                    print("📤 Export requested preset=\(selectedPreset) asset=\(asset.filename)")
+#endif
                     Task { await export(service: service) }
                 } label: {
                     Label("Export Clip", systemImage: "square.and.arrow.down")
@@ -318,6 +370,23 @@ private struct NewVideoEditorSection: View {
                 .buttonStyle(.borderedProminent)
                 .tint(.orange)
             }
+
+            Button {
+                Task {
+                    let summary = await service.validateCompositionDiagnostics()
+                    #if DEBUG
+                    print("✅ Composition diagnostics complete")
+                    #endif
+                    await MainActor.run {
+                        exportMessage = "Diagnostics captured. Check console.\n\n\(summary.split(separator: "\n").prefix(4).joined(separator: "\n"))"
+                    }
+                }
+            } label: {
+                Label("Validate Composition", systemImage: "checkmark.shield")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(.green)
 
             if let exportedURL {
                 VStack(alignment: .leading, spacing: 8) {
@@ -453,9 +522,18 @@ private struct NewVideoEditorSection: View {
         newGraph.operations = operations
         service.editGraph = newGraph
         graphVersion &+= 1
+
+#if DEBUG
+        let cropCount = operations.compactMap { if case .crop = $0 { return 1 } else { return nil } }.count
+        let freezeCount = operations.compactMap { if case .freeze = $0 { return 1 } else { return nil } }.count
+        print("📝 Graph persisted: cropCount=\(cropCount) freezeCount=\(freezeCount) version=\(graphVersion)")
+#endif
     }
 
     private func syncState(with service: EndoEditService) {
+#if DEBUG
+        print("🔗 syncState begin: ops=\(service.editGraph.operations.count)")
+#endif
         let graph = service.editGraph
         resolvedDuration = asset.duration ?? resolvedDuration
         if let cropOp = graph.operations.compactMap({ operation -> CropOperation? in
@@ -492,18 +570,27 @@ private struct NewVideoEditorSection: View {
             return copy
         }
 
+#if DEBUG
+        print("🔗 syncState end: cropEnabled=\(cropEnabled) freezes=\(freezeModels.count) duration=\(resolvedDuration)")
+#endif
         graphVersion &+= 1
     }
 
     private func loadDuration(using service: EndoEditService) async {
         if let known = asset.duration {
             await MainActor.run { resolvedDuration = known }
+#if DEBUG
+            print("⏱️ Duration loaded: \(known)s")
+#endif
             return
         }
 
         do {
             let duration = try await service.engine.asset.load(.duration)
             let seconds = CMTimeGetSeconds(duration).finiteOrZero
+#if DEBUG
+            print("⏱️ Duration loaded: \(seconds)s")
+#endif
             await MainActor.run {
                 resolvedDuration = seconds
                 freezeModels = freezeModels.map { model in
@@ -514,6 +601,9 @@ private struct NewVideoEditorSection: View {
                 persistGraph(using: service)
             }
         } catch {
+#if DEBUG
+            print("⚠️ Failed to load duration: \(error.localizedDescription)")
+#endif
             // Leave resolvedDuration as-is if duration fails to load.
         }
     }

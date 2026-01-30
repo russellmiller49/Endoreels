@@ -55,16 +55,45 @@ public extension NormalizedRect {
     }
 
     func sanitized() -> NormalizedRect {
-        var clampedWidth = min(max(size.width, 0.0), 1.0)
-        var clampedHeight = min(max(size.height, 0.0), 1.0)
-        if clampedWidth <= 0.0 { clampedWidth = 1.0 }
-        if clampedHeight <= 0.0 { clampedHeight = 1.0 }
+        var width = size.width.isFinite ? size.width : 1.0
+        var height = size.height.isFinite ? size.height : 1.0
+        width = min(max(width, 0.0), 1.0)
+        height = min(max(height, 0.0), 1.0)
+        if width <= 0.0 { width = 1.0 }
+        if height <= 0.0 { height = 1.0 }
 
-        let clampedX = min(max(origin.x, 0.0), 1.0 - clampedWidth)
-        let clampedY = min(max(origin.y, 0.0), 1.0 - clampedHeight)
+        var x = origin.x.isFinite ? origin.x : 0
+        var y = origin.y.isFinite ? origin.y : 0
+        x = min(max(x, 0.0), 1.0 - width)
+        y = min(max(y, 0.0), 1.0 - height)
 
-        return NormalizedRect(origin: NormalizedPoint(x: clampedX, y: clampedY),
-                              size: CGSize(width: clampedWidth, height: clampedHeight))
+        return NormalizedRect(origin: NormalizedPoint(x: x, y: y),
+                              size: CGSize(width: width, height: height))
+    }
+
+    /// Validates that the normalized rect contains finite, non-negative geometry
+    /// and remains inside the unit square.
+    var isValidNormalized: Bool {
+        guard origin.x.isFinite,
+              origin.y.isFinite,
+              size.width.isFinite,
+              size.height.isFinite,
+              size.width > 0,
+              size.height > 0,
+              origin.x >= 0,
+              origin.y >= 0 else {
+            return false
+        }
+
+        let maxX = origin.x + size.width
+        let maxY = origin.y + size.height
+        return maxX.isFinite && maxY.isFinite && maxX <= 1.000_001 && maxY <= 1.000_001
+    }
+}
+
+extension CGAffineTransform {
+    var isFinite: Bool {
+        a.isFinite && b.isFinite && c.isFinite && d.isFinite && tx.isFinite && ty.isFinite
     }
 }
 

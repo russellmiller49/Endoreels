@@ -7,4 +7,5 @@
 /Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/FreezeSegment.swift
 /Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/RedactOverlay.swift
 /Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Utils/Geometry.swift
+/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Utils/Time+Sanitization.swift
 /Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/VideoEditorEngine.swift

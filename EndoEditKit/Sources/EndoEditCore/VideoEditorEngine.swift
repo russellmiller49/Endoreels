@@ -5,6 +5,7 @@ import CoreGraphics
 
 public enum EndoEditorEngineError: Error {
     case missingVideoTrack
+    case invalidDuration
 }
 
 /// High level façade around the video editor pipeline. For now it only produces a
@@ -35,13 +36,50 @@ public final class EndoEditorEngine {
             throw EndoEditorEngineError.missingVideoTrack
         }
 
-        let duration = try await asset.load(.duration)
+        let trackTimeRange = try await videoTrack.load(.timeRange)
+        let rawDuration = try await asset.load(.duration)
+
+        let durationSeconds = rawDuration.sanitizedSeconds
+            ?? trackTimeRange.duration.sanitizedSeconds
+
+        guard let safeDurationSeconds = durationSeconds, safeDurationSeconds > 0 else {
+            print("❌ VideoEditorEngine: Unable to determine a finite asset duration. raw=\(rawDuration), trackRange=\(trackTimeRange)")
+            throw EndoEditorEngineError.invalidDuration
+        }
+
+        let preferredTimescale: CMTimeScale
+        if rawDuration.timescale > 0 {
+            preferredTimescale = rawDuration.timescale
+        } else if trackTimeRange.duration.timescale > 0 {
+            preferredTimescale = trackTimeRange.duration.timescale
+        } else {
+            preferredTimescale = 600
+        }
+
+        let duration = CMTime(seconds: safeDurationSeconds, preferredTimescale: preferredTimescale)
         print("🎬 VideoEditorEngine: duration=\(duration)")
 
         let summary = GraphSummary(from: editGraph, assetDuration: duration)
+        let sanitizedCropRect: NormalizedRect?
+        if let rect = summary.cropRect {
+            let sanitizedRect = rect.sanitized()
+            if sanitizedRect.isValidNormalized {
+                sanitizedCropRect = sanitizedRect
+            } else {
+                print("⚠️ VideoEditorEngine: Ignoring crop rect with non-finite values=\(sanitizedRect)")
+                sanitizedCropRect = nil
+            }
+        } else {
+            sanitizedCropRect = nil
+        }
         let frameRate = try await videoTrack.load(.nominalFrameRate)
         let naturalSize = try await videoTrack.load(.naturalSize)
-        let preferredTransform = try await videoTrack.load(.preferredTransform)
+        var preferredTransform = try await videoTrack.load(.preferredTransform)
+
+        if preferredTransform.isFinite == false {
+            print("⚠️ VideoEditorEngine: preferredTransform contains non-finite values. Falling back to identity. transform=\(preferredTransform)")
+            preferredTransform = .identity
+        }
 
         print("🎬 VideoEditorEngine: frameRate=\(frameRate), naturalSize=\(naturalSize)")
         print("🎬 VideoEditorEngine: naturalSize.width.isFinite=\(naturalSize.width.isFinite), naturalSize.height.isFinite=\(naturalSize.height.isFinite)")
@@ -62,7 +100,7 @@ public final class EndoEditorEngine {
         let instruction = EndoCompositionInstruction(
             timeRange: timeRange,
             sourceTrackID: videoTrack.trackID,
-            cropRect: summary.cropRect,
+            cropRect: sanitizedCropRect,
             freezeSegments: summary.freezeSegments,
             imageGenerator: imageGenerator
         )
@@ -76,14 +114,16 @@ public final class EndoEditorEngine {
         videoComposition.frameDuration = CMTime(value: 1, timescale: timescale)
 
         let transformedSize = naturalSize.applying(preferredTransform)
-        print("🎬 VideoEditorEngine: naturalSize=\(naturalSize), transform=\(preferredTransform), transformed=\(transformedSize)")
+        let safeWidthSource = transformedSize.width.isFinite ? transformedSize.width : naturalSize.width
+        let safeHeightSource = transformedSize.height.isFinite ? transformedSize.height : naturalSize.height
+        print("🎬 VideoEditorEngine: naturalSize=\(naturalSize), transform=\(preferredTransform), transformed=\(transformedSize), safeComponents=(\(safeWidthSource), \(safeHeightSource))")
 
-        let baseWidth = sanitize(abs(transformedSize.width), min: 1)
-        let baseHeight = sanitize(abs(transformedSize.height), min: 1)
+        let baseWidth = sanitize(abs(safeWidthSource), min: 1)
+        let baseHeight = sanitize(abs(safeHeightSource), min: 1)
         print("🎬 VideoEditorEngine: baseWidth=\(baseWidth), baseHeight=\(baseHeight)")
 
         let finalRenderSize: CGSize
-        if let crop = summary.cropRect {
+        if let crop = sanitizedCropRect {
             print("🎬 VideoEditorEngine: crop rect=\(crop)")
             let cropWidth = sanitize(crop.size.width, min: 0.1, max: 1.0)
             let cropHeight = sanitize(crop.size.height, min: 0.1, max: 1.0)
@@ -96,7 +136,12 @@ public final class EndoEditorEngine {
             print("🎬 VideoEditorEngine: finalRenderSize (uncropped)=\(finalRenderSize)")
         }
 
-        videoComposition.renderSize = finalRenderSize
+        if finalRenderSize.width.isFinite == false || finalRenderSize.height.isFinite == false || finalRenderSize.width <= 0 || finalRenderSize.height <= 0 {
+            print("⚠️ VideoEditorEngine: Invalid renderSize computed=\(finalRenderSize). Resetting to base dimensions.")
+            videoComposition.renderSize = CGSize(width: baseWidth, height: baseHeight)
+        } else {
+            videoComposition.renderSize = finalRenderSize
+        }
 
         let playerItem = AVPlayerItem(asset: asset)
         playerItem.videoComposition = videoComposition
@@ -115,9 +160,19 @@ private struct GraphSummary {
         for operation in graph.operations {
             switch operation {
             case .crop(let cropOp):
-                crop = cropOp.sanitized().rect
+                let sanitizedRect = cropOp.sanitized().rect.sanitized()
+                if sanitizedRect.isValidNormalized {
+                    crop = sanitizedRect
+                } else {
+                    print("⚠️ VideoEditorEngine: Ignoring invalid crop rect=\(sanitizedRect)")
+                }
             case .freeze(let segment):
-                freezes.append(segment.sanitized(maxDuration: assetDuration))
+                let sanitizedSegment = segment.sanitized(maxDuration: assetDuration)
+                if sanitizedSegment.isValid(maxDuration: assetDuration) {
+                    freezes.append(sanitizedSegment)
+                } else {
+                    print("⚠️ VideoEditorEngine: Ignoring invalid freeze segment id=\(segment.id)")
+                }
             default:
                 continue
             }

@@ -64,6 +64,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Utils/Time+Sanitization.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/VideoEditorEngine.swift"
         },
         {
@@ -88,6 +92,7 @@
         "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/FreezeSegment.swift.o",
         "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/RedactOverlay.swift.o",
         "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Geometry.swift.o",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Time+Sanitization.swift.o",
         "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/VideoEditorEngine.swift.o"
       ],
       "otherArguments" : [
@@ -185,6 +190,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Time+Sanitization.swift.o"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/VideoEditorEngine.swift.o"
         },
         {
@@ -203,6 +212,7 @@
         "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/FreezeSegment.swift",
         "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/RedactOverlay.swift",
         "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Utils/Geometry.swift",
+        "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Utils/Time+Sanitization.swift",
         "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/VideoEditorEngine.swift"
       ],
       "tempsPath" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build",
@@ -581,6 +591,7 @@
       "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/FreezeSegment.swift",
       "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Operations/RedactOverlay.swift",
       "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Utils/Geometry.swift",
+      "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Utils/Time+Sanitization.swift",
       "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/VideoEditorEngine.swift",
       "-I",
       "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/Modules",
@@ -925,6 +936,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Utils/Time+Sanitization.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/VideoEditorEngine.swift"
         }
       ],
@@ -1000,6 +1015,10 @@
         {
           "kind" : "file",
           "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/RedactOverlay.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Time+Sanitization.swift.o"
         },
         {
           "kind" : "file",

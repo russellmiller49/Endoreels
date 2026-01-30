@@ -153,6 +153,10 @@ private extension EndoCompositor {
 
         if let crop = sanitizedCrop {
             var rect = crop.rect(inWidth: sourceSize.width, height: sourceSize.height)
+            if rect.isFinite == false {
+                print("❌ Compositor.render: Non-finite rect from crop=\(rect)")
+                return nil
+            }
             print("🎨 Compositor.render: pre-flip rect=\(rect)")
 
             // Flip Y coordinate for CoreImage coordinate system (validate all components)
@@ -209,7 +213,13 @@ private extension EndoCompositor {
     }
 
     private func sanitizeValue(_ value: CGFloat, min minValue: CGFloat = 0) -> CGFloat {
-        guard value.isFinite else { return minValue }
+        guard value.isFinite else {
+            print("⚠️ Compositor.render: Non-finite value encountered (value=\(value)); clamping to \(minValue)")
+            return minValue
+        }
+        if value < minValue {
+            print("⚠️ Compositor.render: Value \(value) below minimum \(minValue); clamping")
+        }
         return max(value, minValue)
     }
 }

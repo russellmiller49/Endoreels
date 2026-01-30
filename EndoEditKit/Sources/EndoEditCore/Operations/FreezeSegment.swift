@@ -64,6 +64,19 @@ public struct FreezeSegment: Codable, Hashable, Sendable {
                              sourceTime: sanitizedSource,
                              annotations: annotations)
     }
+
+    public func isValid(maxDuration: CMTime, tolerance: Double = 1e-3) -> Bool {
+        guard let maxSeconds = maxDuration.sanitizedSeconds else { return false }
+        guard let startSeconds = start.sanitizedSeconds else { return false }
+        guard let durationSeconds = duration.sanitizedSeconds, durationSeconds > 0 else { return false }
+        guard let sourceSeconds = sourceTime.sanitizedSeconds else { return false }
+
+        if startSeconds < 0 || sourceSeconds < 0 { return false }
+        if startSeconds > maxSeconds + tolerance { return false }
+        if sourceSeconds > maxSeconds + tolerance { return false }
+
+        return startSeconds + durationSeconds <= maxSeconds + tolerance
+    }
 }
 
 private extension FreezeSegment {

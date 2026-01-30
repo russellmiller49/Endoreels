@@ -65,6 +65,13 @@
     "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Geometry.swiftdeps",
     "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Geometry.dia"
   },
+  "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/Utils/Time+Sanitization.swift": {
+    "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Time+Sanitization.d",
+    "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Time+Sanitization.swift.o",
+    "swiftmodule": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Time+Sanitization~partial.swiftmodule",
+    "swift-dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Time+Sanitization.swiftdeps",
+    "diagnostics": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/Time+Sanitization.dia"
+  },
   "/Users/russellmiller/Projects/EndoReels/EndoEditKit/Sources/EndoEditCore/VideoEditorEngine.swift": {
     "dependencies": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/VideoEditorEngine.d",
     "object": "/Users/russellmiller/Projects/EndoReels/EndoEditKit/.build/arm64-apple-macosx/debug/EndoEditCore.build/VideoEditorEngine.swift.o",
