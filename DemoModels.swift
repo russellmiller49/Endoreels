@@ -111,29 +111,51 @@ struct UserProfile: Identifiable {
     let bio: String
 }
 
-struct PHIFinding: Identifiable {
-    enum FindingType: String {
-        case metadata
-        case overlayText
-        case face
-        case audio
-    }
-
-    let id = UUID()
-    let kind: FindingType
-    let summary: String
-    var resolved: Bool
-    let mitigation: String
-}
-
 struct ReelStep: Identifiable {
-    let id = UUID()
+    let id: UUID
     let orderIndex: Int
     let title: String
     let keyPoint: String
     let mediaType: MediaType
     let durationSeconds: Int
     let annotations: [String]
+    let mediaURL: URL?
+    let trimRange: ClosedRange<Double>?
+    let cropScale: Double
+    let cropOffsetX: Double
+    let cropOffsetY: Double
+    let manualBlurRects: [NormalizedRect]
+    let timedAnnotations: [TimedAnnotation]
+
+    init(id: UUID = UUID(),
+         orderIndex: Int,
+         title: String,
+         keyPoint: String,
+         mediaType: MediaType,
+         durationSeconds: Int,
+         annotations: [String],
+         mediaURL: URL? = nil,
+         trimRange: ClosedRange<Double>? = nil,
+         cropScale: Double = 1,
+         cropOffsetX: Double = 0,
+         cropOffsetY: Double = 0,
+         manualBlurRects: [NormalizedRect] = [],
+         timedAnnotations: [TimedAnnotation] = []) {
+        self.id = id
+        self.orderIndex = orderIndex
+        self.title = title
+        self.keyPoint = keyPoint
+        self.mediaType = mediaType
+        self.durationSeconds = durationSeconds
+        self.annotations = annotations
+        self.mediaURL = mediaURL
+        self.trimRange = trimRange
+        self.cropScale = cropScale
+        self.cropOffsetX = cropOffsetX
+        self.cropOffsetY = cropOffsetY
+        self.manualBlurRects = manualBlurRects
+        self.timedAnnotations = timedAnnotations
+    }
 }
 
 struct EngagementSignals {
@@ -183,7 +205,6 @@ struct Reel: Identifiable {
     let author: UserProfile
     let steps: [ReelStep]
     let tags: [String]
-    let phiFindings: [PHIFinding]
     let cmeTrack: CMETrack?
     let engagement: EngagementSignals
     let knowledgeHighlights: [String]
@@ -199,38 +220,10 @@ struct KnowledgeCollection: Identifiable {
     let endorsedBy: String?
 }
 
-struct ModerationTicket: Identifiable {
-    let id = UUID()
-    let createdAt: Date
-    let reel: Reel
-    let issue: String
-    let status: String
-    let slaDue: Date
-}
-
-struct PipelineRun: Identifiable {
-    let id = UUID()
-    let startedAt: Date
-    let assetName: String
-    let stages: [PipelineStage]
-    let resolvedFindings: Int
-    let status: String
-
-    struct PipelineStage: Identifiable {
-        let id = UUID()
-        let name: String
-        let detail: String
-        let durationSeconds: Int
-        let outcome: String
-    }
-}
-
 @MainActor
 final class DemoDataStore: ObservableObject {
     @Published var reels: [Reel] = []
     @Published var collections: [KnowledgeCollection] = []
-    @Published var moderationQueue: [ModerationTicket] = []
-    @Published var pipelineRuns: [PipelineRun] = []
     @Published var importedAssets: [ImportedMediaAsset] = []
     @Published var continueWatching: [UserProgress] = []
 
@@ -287,21 +280,6 @@ final class DemoDataStore: ObservableObject {
             ),
             bio: "Fellowship-trained pulmonologist focused on complex airway obstruction and advanced interventional diagnostics."
         )
-
-        let phiFindings = [
-            PHIFinding(
-                kind: .overlayText,
-                summary: "Detected patient name overlay on frame 02:13",
-                resolved: true,
-                mitigation: "Applied mask + replaced with neutral label"
-            ),
-            PHIFinding(
-                kind: .metadata,
-                summary: "DICOM tag (0010,0010) contained PHI",
-                resolved: true,
-                mitigation: "Removed via de-ident recipe"
-            )
-        ]
 
         let steps = [
             ReelStep(
@@ -378,7 +356,6 @@ final class DemoDataStore: ObservableObject {
             author: author,
             steps: steps,
             tags: ["Pulmonology", "Airway", "Stent", "Complication"],
-            phiFindings: phiFindings,
             cmeTrack: cmeTrack,
             engagement: engagement,
             knowledgeHighlights: ["Use balloon dilation to rescue obstructed stents", "Always verify mucosal perfusion post-dilation", "Schedule early follow-up when stent granulation occurs"],
@@ -454,14 +431,6 @@ final class DemoDataStore: ObservableObject {
                 )
             ],
             tags: ["Gastroenterology", "EMR", "Bleeding Control"],
-            phiFindings: [
-                PHIFinding(
-                    kind: .audio,
-                    summary: "Transcript contained patient initials during narration.",
-                    resolved: false,
-                    mitigation: "Pending moderator review for synthetic voiceover"
-                )
-            ],
             cmeTrack: nil,
             engagement: EngagementSignals(
                 views: 642,
@@ -508,40 +477,5 @@ final class DemoDataStore: ObservableObject {
             )
         ]
 
-        pipelineRuns = [
-            PipelineRun(
-                startedAt: Date().addingTimeInterval(-60 * 20),
-                assetName: "Bronchial_Rescue_clip.mov",
-                stages: [
-                    .init(name: "Metadata Scrub", detail: "Removed 23 patient-identifying tags", durationSeconds: 12, outcome: "Pass"),
-                    .init(name: "OCR Detection", detail: "Found overlay text in 2 frames", durationSeconds: 18, outcome: "Pass"),
-                    .init(name: "Audio Scan", detail: "No PHI terms detected", durationSeconds: 9, outcome: "Pass"),
-                    .init(name: "Moderator Review", detail: "Approved by Dr. Sun", durationSeconds: 45, outcome: "Approved")
-                ],
-                resolvedFindings: 2,
-                status: "Completed"
-            ),
-            PipelineRun(
-                startedAt: Date().addingTimeInterval(-60 * 60 * 4),
-                assetName: "Cold_EMR_voiceover.wav",
-                stages: [
-                    .init(name: "ASR Transcript", detail: "Transcribed 3.8 minutes of narration", durationSeconds: 21, outcome: "Pass"),
-                    .init(name: "PHI NER", detail: "Detected patient initials", durationSeconds: 15, outcome: "Flagged"),
-                    .init(name: "Synth Voice", detail: "Awaiting clean text approval", durationSeconds: 0, outcome: "Pending")
-                ],
-                resolvedFindings: 0,
-                status: "Needs attention"
-            )
-        ]
-
-        moderationQueue = [
-            ModerationTicket(
-                createdAt: Date().addingTimeInterval(-60 * 60 * 8),
-                reel: giReel,
-                issue: "Confirm removal of patient initials in narration",
-                status: "Waiting on creator",
-                slaDue: Date().addingTimeInterval(60 * 60 * 16)
-            )
-        ]
     }
 }

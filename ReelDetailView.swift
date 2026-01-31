@@ -1,4 +1,7 @@
 import SwiftUI
+import AVFoundation
+import AVKit
+import UIKit
 
 struct ReelDetailView: View {
     let reel: Reel
@@ -18,7 +21,6 @@ struct ReelDetailView: View {
                 if !currentReel.knowledgeHighlights.isEmpty {
                     knowledgeHighlights
                 }
-                phiChecklist
                 commentsSection
                 if let track = currentReel.cmeTrack {
                     cmeCard(for: track)
@@ -176,32 +178,6 @@ struct ReelDetailView: View {
                         .foregroundStyle(.yellow)
                     Text(highlight)
                         .font(.body)
-                }
-            }
-        }
-    }
-
-    private var phiChecklist: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("De-identification Checks")
-                .font(.title3.bold())
-            if currentReel.phiFindings.isEmpty {
-                Label("No PHI findings detected", systemImage: "checkmark.shield")
-                    .foregroundStyle(.green)
-            } else {
-                ForEach(currentReel.phiFindings) { finding in
-                    HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: finding.resolved ? "checkmark.shield" : "exclamationmark.shield")
-                            .foregroundStyle(finding.resolved ? .green : .orange)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(finding.summary)
-                                .font(.subheadline.weight(.semibold))
-                            Text("Mitigation: \(finding.mitigation)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                    }
                 }
             }
         }
@@ -381,6 +357,8 @@ private struct CommentCard: View {
 
 struct StepCard: View {
     let step: ReelStep
+    @State private var previewImage: UIImage?
+    @State private var showMediaViewer = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -403,6 +381,18 @@ struct StepCard: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
+            if let url = step.mediaURL {
+                Button {
+                    showMediaViewer = true
+                } label: {
+                    StepMediaPreview(mediaType: step.mediaType, previewImage: previewImage)
+                }
+                .buttonStyle(.plain)
+                .sheet(isPresented: $showMediaViewer) {
+                    StepMediaViewer(step: step)
+                }
+            }
+
             HStack(spacing: 8) {
                 Label(step.mediaType.displayName, systemImage: mediaSystemImage)
                 if !step.annotations.isEmpty {
@@ -418,6 +408,9 @@ struct StepCard: View {
         }
         .padding()
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+        .task(id: step.mediaURL?.absoluteString) {
+            await loadPreviewImage()
+        }
     }
 
     private var mediaSystemImage: String {
@@ -426,6 +419,204 @@ struct StepCard: View {
         case .image: return "photo"
         case .dicom: return "waveform.path"
         }
+    }
+
+    private func loadPreviewImage() async {
+        guard let url = step.mediaURL else {
+            await MainActor.run { previewImage = nil }
+            return
+        }
+
+        switch step.mediaType {
+        case .video:
+            let image = await AVURLAsset(url: url).generateThumbnail()
+            await MainActor.run { previewImage = image }
+        case .image:
+            let image = UIImage(contentsOfFile: url.path)
+            await MainActor.run { previewImage = image }
+        case .dicom:
+            await MainActor.run { previewImage = nil }
+        }
+    }
+}
+
+private struct StepMediaPreview: View {
+    let mediaType: MediaType
+    let previewImage: UIImage?
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(.tertiarySystemBackground))
+
+            if let previewImage {
+                Image(uiImage: previewImage)
+                    .resizable()
+                    .scaledToFill()
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+            } else {
+                Image(systemName: placeholderIcon)
+                    .font(.system(size: 32))
+                    .foregroundStyle(.secondary)
+            }
+
+            if mediaType == .video {
+                Image(systemName: "play.circle.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .shadow(radius: 8)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .aspectRatio(16 / 9, contentMode: .fit)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.white.opacity(0.05), lineWidth: 1)
+        )
+    }
+
+    private var placeholderIcon: String {
+        switch mediaType {
+        case .video:
+            return "play.rectangle"
+        case .image:
+            return "photo"
+        case .dicom:
+            return "waveform.path"
+        }
+    }
+}
+
+private struct StepMediaViewer: View {
+    let step: ReelStep
+    @Environment(\.dismiss) private var dismiss
+    @State private var player: AVPlayer?
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Color.black.ignoresSafeArea()
+
+            if let url = step.mediaURL {
+                GeometryReader { geometry in
+                    let size = geometry.size
+                    ZStack {
+                        viewerCanvas(url: url, size: size)
+                            .scaleEffect(step.cropScale)
+                            .offset(
+                                x: step.cropOffsetX * size.width,
+                                y: step.cropOffsetY * size.height
+                            )
+                    }
+                    .frame(width: size.width, height: size.height)
+                    .clipped()
+                }
+                .ignoresSafeArea()
+            }
+
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 28))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .padding()
+            }
+        }
+        .onAppear {
+            if step.mediaType == .video, let url = step.mediaURL {
+                let player = AVPlayer(url: url)
+                self.player = player
+                player.play()
+            }
+        }
+        .onDisappear {
+            player?.pause()
+            player = nil
+        }
+    }
+
+    @ViewBuilder
+    private func viewerCanvas(url: URL, size: CGSize) -> some View {
+        ZStack(alignment: .topLeading) {
+            switch step.mediaType {
+            case .video:
+                if let player {
+                    AspectFillPlayerView(player: player)
+                        .frame(width: size.width, height: size.height)
+                }
+            case .image:
+                if let image = UIImage(contentsOfFile: url.path) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: size.width, height: size.height)
+                        .clipped()
+                }
+            case .dicom:
+                Rectangle()
+                    .fill(Color(.secondarySystemBackground))
+            }
+
+            ForEach(step.manualBlurRects) { rect in
+                Rectangle()
+                    .fill(.regularMaterial)
+                    .frame(width: rect.width * size.width, height: rect.height * size.height)
+                    .position(
+                        x: (rect.x + rect.width / 2) * size.width,
+                        y: (rect.y + rect.height / 2) * size.height
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+
+            ForEach(step.timedAnnotations) { annotation in
+                let position = CGPoint(x: annotation.position.x * size.width, y: annotation.position.y * size.height)
+                AnnotationOverlay(annotation: annotation)
+                    .position(position)
+            }
+        }
+    }
+}
+
+private struct AnnotationOverlay: View {
+    let annotation: TimedAnnotation
+
+    var body: some View {
+        Group {
+            switch annotation.type {
+            case .arrow:
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 28))
+                    .foregroundStyle(annotation.color.swiftUIColor)
+                    .shadow(radius: 1)
+
+            case .circle:
+                Circle()
+                    .stroke(annotation.color.swiftUIColor, lineWidth: 4)
+                    .frame(width: 64, height: 64)
+                    .shadow(radius: 1)
+
+            case .text:
+                Text(annotation.text.isEmpty ? "Text" : annotation.text)
+                    .font(.caption.weight(.semibold))
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 10)
+                    .background(.thinMaterial, in: Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(annotation.color.swiftUIColor.opacity(0.8), lineWidth: 1)
+                    )
+                    .foregroundStyle(.primary)
+
+            default:
+                Image(systemName: annotation.type.systemImage)
+                    .font(.system(size: 24))
+                    .foregroundStyle(annotation.color.swiftUIColor)
+            }
+        }
+        .scaleEffect(annotation.scale)
+        .rotationEffect(.degrees(annotation.rotation))
+        .opacity(annotation.opacity)
     }
 }
 

@@ -2,31 +2,36 @@ import SwiftUI
 
 enum RootTab: Hashable {
     case feed
-    case creator
     case knowledge
-    case operations
 }
 
 struct ContentView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var store = DemoDataStore()
     @State private var selectedTab: RootTab = .feed
+    @State private var showCreator = false
     @State private var showOnboarding = false
     @State private var feedPath: [UUID] = []
     @State private var selectedReelID: UUID? = nil
     @State private var hasInitializedOnboarding = false
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            feedTab
-            creatorTab
-            knowledgeTab
-            operationsTab
+        ZStack(alignment: .bottom) {
+            TabView(selection: $selectedTab) {
+                feedTab
+                knowledgeTab
+            }
+            createButton
         }
         .environmentObject(store)
         .environmentObject(appState)
         .fullScreenCover(isPresented: $showOnboarding) {
             OnboardingView()
+                .environmentObject(appState)
+        }
+        .fullScreenCover(isPresented: $showCreator) {
+            CreatorView(onClose: { showCreator = false })
+                .environmentObject(store)
                 .environmentObject(appState)
         }
         .onAppear {
@@ -64,8 +69,8 @@ struct ContentView: View {
                 selectedReelID = reel.id
             }
         case .openCreator(let role):
-            selectedTab = .creator
             appState.currentUser.role = role
+            showCreator = true
         }
     }
 
@@ -80,16 +85,6 @@ struct ContentView: View {
         .tag(RootTab.feed)
     }
 
-    private var creatorTab: some View {
-        NavigationStack {
-            CreatorView(onClose: { selectedTab = .feed })
-        }
-        .tabItem {
-            Label("Creator", systemImage: "wand.and.stars")
-        }
-        .tag(RootTab.creator)
-    }
-
     private var knowledgeTab: some View {
         NavigationStack {
             KnowledgeHubView()
@@ -98,16 +93,6 @@ struct ContentView: View {
             Label("Knowledge", systemImage: "books.vertical")
         }
         .tag(RootTab.knowledge)
-    }
-
-    private var operationsTab: some View {
-        NavigationStack {
-            OperationsView()
-        }
-        .tabItem {
-            Label("Ops", systemImage: "checkmark.shield")
-        }
-        .tag(RootTab.operations)
     }
 
     private func destinationForReel(_ reelID: UUID) -> some View {
@@ -123,6 +108,20 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             )
         }
+    }
+
+    private var createButton: some View {
+        Button {
+            showCreator = true
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Color.blue, in: Circle())
+                .shadow(radius: 8, y: 3)
+        }
+        .padding(.bottom, 24)
     }
 }
 

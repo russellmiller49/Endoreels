@@ -15,6 +15,7 @@ public struct MediaAsset: Identifiable, Codable, Hashable, Sendable {
     public var proxyURL: URL?
     public var thumbnailSpriteURL: URL?
     public var waveformURL: URL?
+    public var manualBlurRects: [NormalizedRect]
 
     public init(id: UUID = UUID(),
                 uri: URL,
@@ -23,7 +24,8 @@ public struct MediaAsset: Identifiable, Codable, Hashable, Sendable {
                 createdAt: Date = .now,
                 proxyURL: URL? = nil,
                 thumbnailSpriteURL: URL? = nil,
-                waveformURL: URL? = nil) {
+                waveformURL: URL? = nil,
+                manualBlurRects: [NormalizedRect] = []) {
         self.id = id
         self.uri = uri
         self.duration = duration.finiteOrZero
@@ -32,6 +34,7 @@ public struct MediaAsset: Identifiable, Codable, Hashable, Sendable {
         self.proxyURL = proxyURL
         self.thumbnailSpriteURL = thumbnailSpriteURL
         self.waveformURL = waveformURL
+        self.manualBlurRects = manualBlurRects
     }
 }
 
@@ -45,6 +48,7 @@ extension MediaAsset {
         case proxyURL
         case thumbnailSpriteURL
         case waveformURL
+        case manualBlurRects
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -57,6 +61,7 @@ extension MediaAsset {
         try container.encodeIfPresent(proxyURL?.absoluteString, forKey: .proxyURL)
         try container.encodeIfPresent(thumbnailSpriteURL?.absoluteString, forKey: .thumbnailSpriteURL)
         try container.encodeIfPresent(waveformURL?.absoluteString, forKey: .waveformURL)
+        try container.encode(manualBlurRects, forKey: .manualBlurRects)
     }
 
     public init(from decoder: Decoder) throws {
@@ -84,6 +89,7 @@ extension MediaAsset {
         } else {
             self.waveformURL = nil
         }
+        self.manualBlurRects = try container.decodeIfPresent([NormalizedRect].self, forKey: .manualBlurRects) ?? []
     }
 
     private static func resolveURL(from string: String) throws -> URL {
